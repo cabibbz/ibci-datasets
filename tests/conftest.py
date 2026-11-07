@@ -48,3 +48,69 @@ def card_root(tmp_path):
         "2023-08-11,25,4,2,Switchboard,Test\n"
     )
     return root, csv
+
+
+# ---- Singer-Clark 2025: one MATLAB v5 file per block, fields as in the dataset README ----
+
+SC_LABELS = ["v6v"] * 64 + ["4"] * 64 + ["55b"] * 64 + ["d6v"] * 64
+
+
+def _write_sc_block(path, n_bins, trial_starts, speech=False, grid=False, seed=0):
+    import scipy.io
+
+    rng = np.random.default_rng(seed)
+    trial_idx = np.zeros(n_bins, dtype=np.int16)
+    for i, s in enumerate(trial_starts):
+        trial_idx[s:] = i
+    targets = rng.uniform(-0.4, 0.4, (len(trial_starts), 2)).astype(np.float32)
+    target_position = targets[trial_idx]
+    d = {
+        "timestamp_sec": (np.arange(n_bins) * 0.01)[None, :],
+        "threshold_crossings": rng.integers(0, 6, (n_bins, 256)).astype(np.int16),
+        "spike_band_power": rng.uniform(50, 5000, (n_bins, 256)).astype(np.float32),
+        "assist_amount": np.linspace(1, 0, n_bins)[None, :],
+        "cursor_position": rng.uniform(-0.4, 0.4, (n_bins, 2)).astype(np.float32),
+        "target_position": target_position,
+        "trial_idx": trial_idx[None, :],
+        "cursor_decoder_output": rng.standard_normal((n_bins, 2)).astype(np.float32),
+        "trial_start_bin": np.array(trial_starts, dtype=np.int16)[None, :],
+        "cursor_radius": np.array([[0.025]]),
+        "array_label_by_electrode": np.array(SC_LABELS),
+    }
+    if grid:
+        d["click_decoder_output"] = rng.integers(0, 2, n_bins).astype(np.uint8)[None, :]
+        d["click_assist"] = np.zeros((1, n_bins), dtype=np.uint8)
+        d["grid_num_rows"] = np.array([[6.0]])
+        d["grid_total_height"] = np.array([[0.9]])
+    else:
+        d["target_radius"] = np.array([[0.05]])
+        d["dwell_requirement_sec"] = np.array([[1.0]])
+    if speech:
+        n = len(trial_starts)
+        starts = np.array(trial_starts)
+        d["target_presentation_bin"] = (starts + 10).astype(np.int16)[None, :]
+        d["cursor_go_cue_bin"] = (starts + 20).astype(np.int16)[None, :]
+        beep = (starts + 30).astype(np.int16)
+        beep[1::2] = -1
+        d["speech_go_cue_bin"] = beep[None, :]
+        ends = np.append(starts[1:] - 1, n_bins - 1)
+        d["trial_end_bin"] = ends.astype(np.int16)[None, :]
+        prompts = np.empty((1, n), dtype=object)
+        for i, w in enumerate(["kite", "choice", "though", "word"][:n]):
+            prompts[0, i] = np.array([w])
+        d["speech_prompt"] = prompts
+        d["is_control_block"] = np.array([[1]], dtype=np.uint8)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    scipy.io.savemat(str(path), d)
+
+
+@pytest.fixture
+def sc_root(tmp_path):
+    root = tmp_path / "dryad_files"
+    _write_sc_block(root / "t15_day00039_block00_radial8_calibration_task.mat", 400, [0, 120, 250])
+    _write_sc_block(root / "t15_day00202_block02_simultaneous_speech_and_cursor_task.mat", 500,
+                    [32, 150, 300, 420], speech=True, seed=1)
+    _write_sc_block(root / "t15_day00468_block03_grid_evaluation_task.mat", 300, [0, 100, 200],
+                    grid=True, seed=2)
+    (root / "t15_day00202_words.mat").write_bytes(b"undocumented")  # must be skipped
+    return root

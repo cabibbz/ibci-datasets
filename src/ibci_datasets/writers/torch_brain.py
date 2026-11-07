@@ -36,7 +36,8 @@ def to_data(rec: Recording, brainset_id: str | None = None):
         raise ImportError("torch_brain output needs torch_brain: pip install 'ibci-datasets[torch-brain]'") from e
     import datetime as dt
 
-    if rec.trials is not None and len(rec.trials):
+    # Trial-only releases have data only inside trials; continuous ones cover the whole span.
+    if rec.timeline == "concatenated-trials" and rec.trials is not None and len(rec.trials):
         domain = Interval(start=rec.trials.start.astype(np.float64), end=rec.trials.end.astype(np.float64))
     else:
         half = rec.bin_size_s / 2
@@ -53,6 +54,12 @@ def to_data(rec: Recording, brainset_id: str | None = None):
         location=rec.channels.locations.astype("S"),
     )
     parts = dict(neural=neural, channels=channels, domain=domain)
+    if rec.behavior:
+        parts["behavior"] = IrregularTimeSeries(
+            timestamps=rec.timestamps.astype(np.float64),
+            domain=domain,
+            **{s.name: np.asarray(s.data) for s in rec.behavior},
+        )
     if rec.trials is not None and len(rec.trials):
         cols = {}
         for k, v in rec.trials.columns.items():

@@ -81,6 +81,10 @@ def to_nwbfile(rec: Recording):
     for cid, array_id, location in zip(rec.channels.ids, rec.channels.arrays, rec.channels.locations):
         nwb.add_electrode(group=groups[array_id], location=str(location), channel_id=str(cid))
 
+    # A regular grid is stored as starting_time + rate (NWB best practice); gappy
+    # timelines (concatenated trials) need explicit timestamps.
+    timing = _timing(rec)
+
     module = nwb.create_processing_module(name="ecephys", description="Binned neural features")
     for f in rec.features:
         desc = f"{f.description}. Normalization: {f.normalization}. Columns follow the electrodes table."
@@ -91,10 +95,18 @@ def to_nwbfile(rec: Recording):
                 name=f.name,
                 data=f.data,
                 unit=f.unit,
-                timestamps=rec.timestamps,
                 description=desc,
+                **timing,
             )
         )
+
+    if rec.behavior:
+        bmod = nwb.create_processing_module(name="behavior", description="Task and decoder signals")
+        for s in rec.behavior:
+            desc = s.description
+            if s.components:
+                desc += f" Columns: {', '.join(s.components)}."
+            bmod.add(TimeSeries(name=s.name, data=s.data, unit=s.unit, description=desc, **timing))
 
     if rec.trials is not None and len(rec.trials):
         tr = rec.trials
@@ -104,6 +116,15 @@ def to_nwbfile(rec: Recording):
             row = {k: _scalar(v[i]) for k, v in tr.columns.items()}
             nwb.add_trial(start_time=float(tr.start[i]), stop_time=float(tr.end[i]), **row)
     return nwb
+
+
+def _timing(rec: Recording) -> dict:
+    ts = rec.timestamps
+    if rec.timeline == "continuous" and len(ts) > 1:
+        expected = ts[0] + rec.bin_size_s * np.arange(len(ts))
+        if np.allclose(ts, expected, rtol=0, atol=1e-6):
+            return {"starting_time": float(ts[0]), "rate": 1.0 / rec.bin_size_s}
+    return {"timestamps": ts}
 
 
 def _scalar(v):

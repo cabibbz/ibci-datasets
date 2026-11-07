@@ -48,6 +48,17 @@ class Feature:
 
 
 @dataclasses.dataclass
+class Signal:
+    """A non-neural signal sampled on the recording's bins, e.g. cursor position."""
+
+    name: str  # "cursor_position", "assist_amount", ...
+    data: np.ndarray  # (T,) or (T, D), aligned with Recording.timestamps
+    unit: str
+    description: str
+    components: tuple[str, ...] = ()  # names of the D columns, e.g. ("x", "y")
+
+
+@dataclasses.dataclass
 class Trials:
     """Trial table. ``start`` and ``end`` are seconds on the recording's timeline."""
 
@@ -88,6 +99,7 @@ class Recording:
     task: str = ""
     timeline: str = "continuous"  # "continuous" or "concatenated-trials"
     provenance: dict[str, Any] = dataclasses.field(default_factory=dict)
+    behavior: list[Signal] = dataclasses.field(default_factory=list)
 
     def __post_init__(self) -> None:
         t = len(self.timestamps)
@@ -102,6 +114,16 @@ class Recording:
                     f"Recording: feature {f.name!r} has shape {f.data.shape}, "
                     f"expected {(t, len(self.channels))}"
                 )
+        names = [s.name for s in self.behavior]
+        if len(set(names)) != len(names):
+            raise ValueError("Recording: behavior signal names must be unique")
+        for s in self.behavior:
+            if s.data.ndim not in (1, 2) or s.data.shape[0] != t:
+                raise ValueError(
+                    f"Recording: behavior signal {s.name!r} has shape {s.data.shape}, expected ({t}, ...)"
+                )
+            if s.components and (s.data.ndim != 2 or len(s.components) != s.data.shape[1]):
+                raise ValueError(f"Recording: behavior signal {s.name!r} components do not match its columns")
 
     def feature(self, name: str) -> Feature:
         for f in self.features:

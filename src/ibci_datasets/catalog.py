@@ -81,7 +81,10 @@ DATASETS: tuple[Dataset, ...] = (
        notes="Same block schema as jude2026_anarthria; 18.6 GB is language models."),
     _D("singerclark2025_cursor", "Singer-Clark 2025 cursor control from speech motor cortex",
        ("T15",), "dryad", "doi:10.5061/dryad.prr4xgxzq", "CC0-1.0", 1.47, "10", None,
-       "continuous", "Neuroprosthetics-Lab/BCI-cursor-control-from-speech-motor-cortex", "S"),
+       "continuous", "Neuroprosthetics-Lab/BCI-cursor-control-from-speech-motor-cortex", "S",
+       reader="singerclark2025",
+       notes="One .mat per block, raw features and cursor/click behaviour; threshold level "
+             "not stated. t15_day00202_words.mat is undocumented and skipped."),
     _D("hahn2026_arrays", "Hahn 2026 microelectrode array performance",
        ("T2", "T3", "T5", "T6", "T7", "T8", "T9", "T10", "T11"), "dryad",
        "doi:10.5061/dryad.x0k6djj1h", "CC0-1.0", 84.73, "10", "six thresholds",
