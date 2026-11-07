@@ -89,7 +89,7 @@ Generated with `ibci list --markdown`. "torch_brain: draft" means an unmerged pi
 | [gusman2026_anthropomorphicity](https://datadryad.org/dataset/doi:10.5061/dryad.37pvmcw08) | T11, T17 | 0.23 | 20 | units | planned | none |
 | [pun2024_instability](https://datadryad.org/dataset/doi:10.5061/dryad.n2z34tn5s) | T5, T11 | 0.41 | 20 | continuous | planned | none |
 | [singerclark2025_cursor](https://datadryad.org/dataset/doi:10.5061/dryad.prr4xgxzq) | T15 | 1.47 | 10 | continuous | yes | none |
-| [srinivasan2026_speech_modes](https://datadryad.org/dataset/doi:10.5061/dryad.2547d7x5w) | T15, T16 | 2.47 | 10 | trials | planned | none |
+| [srinivasan2026_speech_modes](https://datadryad.org/dataset/doi:10.5061/dryad.2547d7x5w) | T15, T16 | 2.47 | 10 | trials | yes | none |
 | [willsey2024_finger](https://datadryad.org/dataset/doi:10.5061/dryad.1jwstqk4f) | T5 | 0.18 | ? | continuous | planned | none |
 | [falcon_h1](https://dandiarchive.org/dandiset/000954) | HumanPitt | 0.10 | 20 | continuous | planned | merged |
 
@@ -100,7 +100,7 @@ Not included: Caltech dandiset 000401 (empty), and Paulk et al.'s acute human Ne
 Readers are added smallest and best-documented first:
 
 1. `card2024_speech` (done)
-2. `singerclark2025_cursor` (done), `srinivasan2026_speech_modes`, `pun2024_instability`, `deo2026_mosaic`, `gusman2026_anthropomorphicity`, `deo2024_bimanual`, `willsey2024_finger`
+2. `singerclark2025_cursor` (done), `srinivasan2026_speech_modes` (done), `pun2024_instability`, `deo2026_mosaic`, `gusman2026_anthropomorphicity`, `deo2024_bimanual`, `willsey2024_finger`
 3. `falcon_h2` and the Caltech sets (already NWB; torch_brain pipelines only)
 4. `fan2023_corp`, `willett2023_speech`, `jude2026_anarthria` + `jude2026_typing` (shared block format)
 5. The rest

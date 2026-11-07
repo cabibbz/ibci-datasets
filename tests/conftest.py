@@ -114,3 +114,57 @@ def sc_root(tmp_path):
                     grid=True, seed=2)
     (root / "t15_day00202_words.mat").write_bytes(b"undocumented")  # must be skipped
     return root
+
+
+# ---- Srinivasan 2026: per-trial cell arrays in one MATLAB v5 file per block ----
+
+def _cellrow(items):
+    out = np.empty((1, len(items)), dtype=object)
+    for i, x in enumerate(items):
+        out[0, i] = x
+    return out
+
+
+def _write_sri_word(path, cues, seed=0):
+    import scipy.io
+
+    rng = np.random.default_rng(seed)
+    n = len(cues)
+    smooth_len = [900, 901, 900][:n] + [900] * max(0, n - 3)
+    d = {
+        "cue": np.array(cues),
+        "delay_duration_ms": np.full((1, n), 2000, dtype=np.int64),
+        "threshcross": _cellrow([rng.standard_normal((L, 256)).astype(np.float32) for L in smooth_len]),
+        "spikepow": _cellrow([rng.standard_normal((L, 256)) for L in smooth_len]),  # float64, as in T16
+        "raw_threshcross": _cellrow([rng.integers(0, 5, (L - 300, 256)).astype(np.int16) for L in smooth_len]),
+        "speech_onsets": _cellrow([np.array([[45000 if c != "DO NOTHING" else 91]], dtype=np.int64) for c in cues]),
+        "speech_offsets": _cellrow([np.array([[72000 if c != "DO NOTHING" else 120]], dtype=np.int64) for c in cues]),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    scipy.io.savemat(str(path), d)
+
+
+def _write_sri_sentence(path, seed=0):
+    import scipy.io
+
+    rng = np.random.default_rng(seed)
+    lens = [537, 686]
+    d = {
+        "cue": np.array(["i mean we ARE talking.", "POTATOES and ONIONS please."]),
+        "threshcross": _cellrow([rng.standard_normal((L, 256)).astype(np.float32) for L in lens]),
+        "spikepow": _cellrow([rng.standard_normal((L, 256)).astype(np.float32) for L in lens]),
+        "decoder_final_output": _cellrow([np.array(["i mean, we are talking."]), np.array(["potatoes and onions, please."])]),
+        "updated_decoder_final_output": _cellrow([np.array(["i mean, we ARE talking."]), np.array(["POTATOES and ONIONS, please."])]),
+        "logits": _cellrow([rng.standard_normal((L // 2, 41)).astype(np.float32) for L in lens]),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    scipy.io.savemat(str(path), d)
+
+
+@pytest.fixture
+def sri_root(tmp_path):
+    root = tmp_path / "srinivasan"
+    _write_sri_word(root / "t15_word-loudness_block_6.mat", ["WHISPER: have", "LOUD: do", "DO NOTHING"])
+    _write_sri_word(root / "t16_word-loudness_block_3.mat", ["MIME: be", "NORMAL: going"], seed=1)
+    _write_sri_sentence(root / "t15_sentence-loudness_block_11.mat", seed=2)
+    return root

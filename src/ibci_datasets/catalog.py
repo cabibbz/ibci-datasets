@@ -69,7 +69,9 @@ DATASETS: tuple[Dataset, ...] = (
        notes="Features are log-transformed, normalized and smoothed. Never load the Keras models."),
     _D("srinivasan2026_speech_modes", "Srinivasan 2026 speech modes and loudness",
        ("T15", "T16"), "dryad", "doi:10.5061/dryad.2547d7x5w", "CC0-1.0", 2.47, "10", "-4.5 RMS",
-       "trials", "Neuroprosthetics-Lab/srinivasan-speech-modes", "S"),
+       "trials", "Neuroprosthetics-Lab/srinivasan-speech-modes", "S", reader="srinivasan2026",
+       notes="Per-trial .mat; smoothed+normalized features plus raw crossings (word task). "
+             "Electrode order differs between files (see the reader docstring)."),
     _D("jude2026_anarthria", "Jude 2026 speech after long-term anarthria",
        ("T17",), "dryad", "doi:10.5061/dryad.vq83bk481", "CC0-1.0", 18.98, "10", "-3.5 SD",
        "continuous", "justin-jude/anarthria-speech-bci", "M",
