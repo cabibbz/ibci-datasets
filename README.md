@@ -107,6 +107,10 @@ Readers are added smallest and best-documented first:
 
 Each torch_brain pipeline is contributed upstream to [neuro-galaxy/torch_brain](https://github.com/neuro-galaxy/torch_brain), using this package for parsing. Before sending one, coordinate with the maintainers: unmerged drafts for Willett 2023 and Card 2024 exist on brainsets branches `brain2text` and `brain2text25`. NWB copies go to DANDI only with the original lab's agreement.
 
+## Errata
+
+Building readers against the full releases turned up places where files differ from their documentation, including an electrode order that changes between files of one release. See [ERRATA.md](ERRATA.md).
+
 ## Safety
 
 Several releases include pickles and Keras, PyTorch or TensorFlow model files. Readers never open them, and `--extract-suffix` keeps them out of the working tree. Downloads refuse file names and zip members that would escape the target folder.
