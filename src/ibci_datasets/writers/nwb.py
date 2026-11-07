@@ -93,7 +93,7 @@ def to_nwbfile(rec: Recording):
         module.add(
             TimeSeries(
                 name=f.name,
-                data=f.data,
+                data=_compressed(f.data),
                 unit=f.unit,
                 description=desc,
                 **timing,
@@ -106,7 +106,7 @@ def to_nwbfile(rec: Recording):
             desc = s.description
             if s.components:
                 desc += f" Columns: {', '.join(s.components)}."
-            bmod.add(TimeSeries(name=s.name, data=s.data, unit=s.unit, description=desc, **timing))
+            bmod.add(TimeSeries(name=s.name, data=_compressed(s.data), unit=s.unit, description=desc, **timing))
 
     if rec.trials is not None and len(rec.trials):
         tr = rec.trials
@@ -116,6 +116,13 @@ def to_nwbfile(rec: Recording):
             row = {k: _scalar(v[i]) for k, v in tr.columns.items()}
             nwb.add_trial(start_time=float(tr.start[i]), stop_time=float(tr.end[i]), **row)
     return nwb
+
+
+def _compressed(data: np.ndarray):
+    """gzip with chunking: lossless, and readable by any HDF5 tool (DANDI recommends it)."""
+    from hdmf.backends.hdf5.h5_utils import H5DataIO
+
+    return H5DataIO(data=data, compression="gzip", compression_opts=4, shuffle=True)
 
 
 def _timing(rec: Recording) -> dict:

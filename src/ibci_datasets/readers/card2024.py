@@ -26,6 +26,7 @@ import csv
 import datetime as dt
 import re
 from pathlib import Path
+from typing import Iterator
 
 import h5py
 import numpy as np
@@ -253,10 +254,16 @@ def read_file(path: str | Path, block_table: dict | None = None) -> Recording:
     )
 
 
-def read(root: str | Path, block_table_csv: str | Path | None = None) -> list[Recording]:
-    """Read every session and split under ``root``."""
+def iter_recordings(root: str | Path, block_table_csv: str | Path | None = None) -> Iterator[Recording]:
+    """Yield each session and split under ``root``, one file in memory at a time."""
     table = load_block_table(block_table_csv) if block_table_csv else None
     files = find_files(root)
     if not files:
         raise FileNotFoundError(f"no t15.*/data_*.hdf5 files under {root}")
-    return [read_file(p, table) for p in files]
+    for p in files:
+        yield read_file(p, table)
+
+
+def read(root: str | Path, block_table_csv: str | Path | None = None) -> list[Recording]:
+    """Read every session and split under ``root``."""
+    return list(iter_recordings(root, block_table_csv))

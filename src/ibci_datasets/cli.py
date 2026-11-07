@@ -77,7 +77,8 @@ def _cmd_convert(args) -> int:
     kwargs = {}
     if args.block_table:
         kwargs["block_table_csv"] = args.block_table
-    recordings = reader.read(args.source, **kwargs)
+    # Prefer the lazy form so a large release is never held in memory all at once.
+    recordings = getattr(reader, "iter_recordings", reader.read)(args.source, **kwargs)
     if args.to == "nwb":
         from .writers import nwb as writer
     else:

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Iterator
 
 import numpy as np
 
@@ -258,9 +259,15 @@ def _trials(d: dict, ts: np.ndarray, block_end: float, name: str) -> Trials:
                   columns=columns, descriptions=descriptions)
 
 
-def read(root: str | Path) -> list[Recording]:
-    """Read every block under ``root`` (one Recording per block)."""
+def iter_recordings(root: str | Path) -> Iterator[Recording]:
+    """Yield one Recording per block under ``root``, one file in memory at a time."""
     files = find_files(root)
     if not files:
         raise FileNotFoundError(f"no t15_day*_block*_<task>.mat files under {root}")
-    return [read_file(p) for p in files]
+    for p in files:
+        yield read_file(p)
+
+
+def read(root: str | Path) -> list[Recording]:
+    """Read every block under ``root`` (one Recording per block)."""
+    return list(iter_recordings(root))

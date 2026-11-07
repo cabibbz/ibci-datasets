@@ -8,7 +8,7 @@ About two dozen human Utah-array BCI datasets are public, almost all from the Br
 - **A Dryad client** that handles tokens, resumes interrupted downloads and checks SHA-256 digests.
 - **Readers** that parse each release once into a common `Recording`, and **writers** that turn a `Recording` into NWB or a torch_brain `Data` file.
 
-> Status: pre-alpha. One reader (Card 2024, the Brain-to-Text '25 data) is implemented and tested against synthetic files built to the documented layout. It has not yet been run on the real release, because that needs Dryad credentials.
+> Status: pre-alpha. Two readers, both run on the full real releases from Dryad (November 2026): Card 2024 (Brain-to-Text '25, 127 session files) and Singer-Clark 2025 (cursor control, 51 blocks). In both, the NWB output is bit-identical to the source arrays and passes nwbinspector apart from subject age, which the releases do not include and DANDI requires.
 
 ## Install
 
@@ -113,7 +113,7 @@ Several releases include pickles and Keras, PyTorch or TensorFlow model files. R
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). In short: a reader is one module in `src/ibci_datasets/readers/` exposing `read(root, **options) -> list[Recording]`, with tests that build synthetic files to the documented layout.
+See [CONTRIBUTING.md](CONTRIBUTING.md). In short: a reader is one module in `src/ibci_datasets/readers/` exposing `iter_recordings(root, **options)` and `read(root, **options) -> list[Recording]`, with tests that build synthetic files to the documented layout.
 
 ## Citing the data
 
