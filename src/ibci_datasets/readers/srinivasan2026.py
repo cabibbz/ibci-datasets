@@ -31,8 +31,9 @@ ERRATA.md). Sentence-loudness is consistent with the flag-1 order against all fo
 references (margins 0.08-0.15). Word-loudness is consistent with the flag-0 order against
 Card 2023-11-04 (margin 0.033, just above the 0.03 threshold) and inconclusive against
 three other Oct-Nov 2023 sessions; no reference favours another order by a passing
-margin. So the word-loudness order rests mainly on the companion scripts, with weak
-support from the data. T16's order (55b/PEF, 6v, then two hand-knob arrays) is from the
+margin. Deo 2026's T15 file (2023-08-27), which uses the same older column order, matches
+the word-loudness columns one to one (margin 0.074, support 1.00), so the order is
+independently confirmed. T16's order (55b/PEF, 6v, then two hand-knob arrays) is from the
 companion scripts only; other T16 releases are not yet read.
 
 Not converted: the sentence files' phoneme ``logits`` and partial decoder outputs (20 ms
@@ -70,7 +71,7 @@ ARRAYS = {
 }
 _MAPPING_SOURCE = {
     ("t15", "word-loudness"): "companion scripts (flag 0); verify-mapping consistent vs Card 2023-11-04 "
-                              "(margin 0.033), inconclusive vs other Oct-Nov 2023 sessions",
+                              "(margin 0.033) and matches Deo 2026 T15 columns one to one (margin 0.074)",
     ("t15", "sentence-loudness"): "verify-mapping consistent vs Card 2024-2025 sessions (flag-1 order)",
     ("t16", "word-loudness"): "companion scripts (psth.py) only; unverified",
 }

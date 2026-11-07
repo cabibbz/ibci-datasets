@@ -95,9 +95,10 @@ DATASETS: tuple[Dataset, ...] = (
              "is not time-aligned across arrays."),
     _D("deo2026_mosaic", "Deo 2026 whole-body mosaic in precentral gyrus",
        ("T5", "T11", "T12", "T15", "T16", "T17"), "dryad", "doi:10.5061/dryad.mpg4f4rg5",
-       "CC0-1.0", 0.38, "20", None, "continuous", "d-r-deo/pcg-mosaic", "S",
+       "CC0-1.0", 0.38, "20", None, "continuous", "d-r-deo/pcg-mosaic", "S", reader="deo2026",
        notes="Multi-unit channels and sorted units share one matrix; split them with chanSets. "
-             "Participants C1/C2 are hosted separately on DABI."),
+             "Array names are lab codes; T15 columns are not in Card 2024's order (see ERRATA.md). "
+             "T17.mat is MATLAB v7.3. Participants C1/C2 are hosted separately on DABI."),
     _D("deo2024_bimanual", "Deo 2024 bimanual cursor control",
        ("T5",), "dryad", "doi:10.5061/dryad.sn02v6xbb", "CC0-1.0", 0.14, "20", None,
        "trials", "d-r-deo/bimanualBCI", "S"),

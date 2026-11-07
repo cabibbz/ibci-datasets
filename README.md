@@ -8,7 +8,7 @@ About two dozen human Utah-array BCI datasets are public, almost all from the Br
 - **A Dryad client** that handles tokens, resumes interrupted downloads and checks SHA-256 digests.
 - **Readers** that parse each release once into a common `Recording`, and **writers** that turn a `Recording` into NWB or a torch_brain `Data` file.
 
-> Status: pre-alpha. Two readers, both run on the full real releases from Dryad (November 2026): Card 2024 (Brain-to-Text '25, 127 session files) and Singer-Clark 2025 (cursor control, 51 blocks). In both, the NWB output is bit-identical to the source arrays and passes nwbinspector apart from subject age, which the releases do not include and DANDI requires.
+> Status: pre-alpha. Five readers, each run on the full real release from Dryad (November 2026): Card 2024 (Brain-to-Text '25), Singer-Clark 2025 (cursor), Srinivasan 2026 (speech modes), Pun 2024 (MINDFUL) and Deo 2026 (whole-body mosaic, six participants). NWB output is bit-identical to the source arrays and passes nwbinspector apart from fields the releases lack (subject age; some dates and institutions). Release discrepancies, including electrode orders that differ between releases, are in [ERRATA.md](ERRATA.md).
 
 ## Install
 
@@ -83,7 +83,7 @@ Generated with `ibci list --markdown`. "torch_brain: draft" means an unmerged pi
 | [caltech_finger_rl](https://dandiarchive.org/dandiset/000252) | P1, N1 | 0.04 | ? | units | planned | none |
 | [caltech_ppc_finger](https://dandiarchive.org/dandiset/000147) | P1 | 0.08 | ? | units | planned | none |
 | [deo2024_bimanual](https://datadryad.org/dataset/doi:10.5061/dryad.sn02v6xbb) | T5 | 0.14 | 20 | trials | planned | none |
-| [deo2026_mosaic](https://datadryad.org/dataset/doi:10.5061/dryad.mpg4f4rg5) | T5, T11, T12, T15, T16, T17 | 0.38 | 20 | continuous | planned | none |
+| [deo2026_mosaic](https://datadryad.org/dataset/doi:10.5061/dryad.mpg4f4rg5) | T5, T11, T12, T15, T16, T17 | 0.38 | 20 | continuous | yes | none |
 | [falcon_h2](https://dandiarchive.org/dandiset/000950) | T5 | 1.22 | 20 | trials | planned | none |
 | [fan2023_corp](https://datadryad.org/dataset/doi:10.5061/dryad.hqbzkh1p6) | T5 | 3.57 | 20 | trials | planned | none |
 | [gusman2026_anthropomorphicity](https://datadryad.org/dataset/doi:10.5061/dryad.37pvmcw08) | T11, T17 | 0.23 | 20 | units | planned | none |
@@ -100,7 +100,7 @@ Not included: Caltech dandiset 000401 (empty), and Paulk et al.'s acute human Ne
 Readers are added smallest and best-documented first:
 
 1. `card2024_speech` (done)
-2. `singerclark2025_cursor` (done), `srinivasan2026_speech_modes` (done), `pun2024_instability` (done), `deo2026_mosaic`, `gusman2026_anthropomorphicity`, `deo2024_bimanual`, `willsey2024_finger`
+2. `singerclark2025_cursor` (done), `srinivasan2026_speech_modes` (done), `pun2024_instability` (done), `deo2026_mosaic` (done), `gusman2026_anthropomorphicity`, `deo2024_bimanual`, `willsey2024_finger`
 3. `falcon_h2` and the Caltech sets (already NWB; torch_brain pipelines only)
 4. `fan2023_corp`, `willett2023_speech`, `jude2026_anarthria` + `jude2026_typing` (shared block format)
 5. The rest

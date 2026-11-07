@@ -100,7 +100,11 @@ def _load_selected(dataset_id: str, root: str, patterns: list[str] | None):
     if not paths:
         raise SystemExit(f"error: no {d.id} files under {root} match {patterns}")
     print(f"{d.id}: {len(paths)} file(s)", file=sys.stderr)
-    return [reader.read_source(p) for p in paths]
+    out = []
+    for p in paths:  # read_source returns one Recording, or a list for multi-block files
+        r = reader.read_source(p)
+        out.extend(r if isinstance(r, list) else [r])
+    return out
 
 
 def _cmd_verify_mapping(args) -> int:

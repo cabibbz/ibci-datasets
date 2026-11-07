@@ -22,7 +22,9 @@ Findings from the data, beyond the README:
 * ``useClick`` is one value per block, not per trial.
 * Channels 0-95 and 96-191 are the two arrays (within-array correlation exceeds
   across-array, against an interleaved control). Which physical array is which is not
-  stated, so they are labelled ``a1`` and ``a2``.
+  stated, so they are labelled ``a1`` and ``a2``. ``ibci verify-mapping`` against Deo 2026
+  matches ``a1`` / ``a2`` to Deo's ``d2`` / ``d1`` for T5 (margins 0.18-0.21) and T11
+  (margin 0.057 at day 800; inconclusive at day 658).
 * Personal-use blocks have no intention labels or per-trial task fields; their
   ``startStops`` segments (1-27 s) are kept as trials, but what they delimit is not documented.
 * T11 day 689 block 14 has 76 rows of ``trialSuccess``, ``pathEfficiency`` and
