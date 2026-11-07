@@ -168,3 +168,55 @@ def sri_root(tmp_path):
     _write_sri_word(root / "t16_word-loudness_block_3.mat", ["MIME: be", "NORMAL: going"], seed=1)
     _write_sri_sentence(root / "t15_sentence-loudness_block_11.mat", seed=2)
     return root
+
+
+# ---- Pun 2024 (MINDFUL): <P>/day_<n>/Block_<nn>/{data,task,info}.mat ----
+
+def _write_pun_block(folder, n=500, trials=((10, 60), (80, 200), (230, 480)), t11=True, extra_row=False,
+                     personal=False, seed=0):
+    import scipy.io
+
+    rng = np.random.default_rng(seed)
+    folder.mkdir(parents=True, exist_ok=True)
+    data = {"nctx": (rng.integers(0, 3, (n, 192)) * 50).astype(np.float32 if t11 else np.uint64),
+            "cursorVel": rng.standard_normal((n, 2)).astype(np.float32)}
+    if t11:
+        data["spikePower"] = rng.uniform(10, 5e4, (n, 192)).astype(np.float32)
+    if not personal:
+        data["labels"] = rng.standard_normal((n, 2)).astype(np.float32)
+    k = len(trials)
+    ss = np.array(trials, dtype=np.int64)  # 1-based inclusive, as in the release
+    task = {"name": np.array(["Personal use" if personal else ("circleOfCircles" if t11 else "Fitts")]),
+            "nPointsPerBlock": np.array([[n]], dtype=np.uint16), "startStops": ss,
+            "useClick": np.array([[1 if t11 else 0]], dtype=np.uint8)}
+    if not personal:
+        task["excludeTrials"] = np.zeros((k, 1), dtype=np.uint8)
+        task["moveDirVect"] = rng.standard_normal((k, 2)).astype(np.float32)
+    ttt = (ss[:, 1] - ss[:, 0] + 1) * 0.02
+    m = k + (1 if extra_row else 0)
+    info = {"avgOutliers": rng.uniform(0, 5, (n, 1)).astype(np.float32)} if t11 else {}
+    if not personal:
+        info.update({
+            "cursorPos": rng.uniform(-1, 1, (n, 2)).astype(np.float32),
+            "targetPos": rng.uniform(-1, 1, (n, 2)).astype(np.float32),
+            "angleError": rng.uniform(0, 180, (n, 1)).astype(np.float32),
+            "timeToTarget": ttt[:, None],
+            "trialSuccess": np.ones((m, 1), dtype=np.uint8),
+            "pathEfficiency": rng.uniform(0, 1, (m, 1)),
+            "orthChanges": rng.integers(0, 5, (m, 1)).astype(np.uint8),
+            "angleErrorPerTrial": rng.uniform(0, 90, (k, 1)),
+            "percentCorrect": np.array([[100.0]]),
+        })
+    for name, d in (("data", data), ("task", task), ("info", info)):
+        scipy.io.savemat(str(folder / f"{name}.mat"), d)
+
+
+@pytest.fixture
+def pun_root(tmp_path):
+    root = tmp_path / "MINDFUL_Data"
+    _write_pun_block(root / "T5" / "day_2121" / "Block_01", t11=False)
+    _write_pun_block(root / "T11" / "day_689" / "Block_14", extra_row=True, seed=1)
+    _write_pun_block(root / "T11(additional)" / "personal_use" / "day_658" / "Block_08",
+                     trials=((5, 40), (100, 300)), personal=True, seed=2)
+    (root / "T11" / ".DS_Store").write_bytes(b"\x00")
+    return root

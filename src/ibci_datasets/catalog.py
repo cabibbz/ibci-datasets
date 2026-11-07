@@ -126,7 +126,9 @@ DATASETS: tuple[Dataset, ...] = (
        notes="Unnamed positional struct fields; one day has its arrays swapped."),
     _D("pun2024_instability", "Pun 2024 recording instability (MINDFUL)",
        ("T5", "T11"), "dryad", "doi:10.5061/dryad.n2z34tn5s", "CC0-1.0", 0.41, "20", "-3.5 RMS",
-       "continuous", "ewinapun/MINDFUL", "S"),
+       "continuous", "ewinapun/MINDFUL", "S", reader="pun2024",
+       notes="nctx is a rate in Hz (count x 50) with outlier bins interpolated; two 96-channel "
+             "arrays; one block has a surplus trailing metrics row (see the reader docstring)."),
     _D("falcon_h1", "FALCON H1 7-DoF reach and grasp",
        ("HumanPitt",), "dandi", "000954", "CC-BY-4.0", 0.10, "20", None, "continuous",
        "snel-repo/falcon-challenge", "done", torch_brain="merged", in_nwb=True,
