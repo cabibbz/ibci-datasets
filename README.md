@@ -107,6 +107,28 @@ Readers are added smallest and best-documented first:
 
 Each torch_brain pipeline is contributed upstream to [neuro-galaxy/torch_brain](https://github.com/neuro-galaxy/torch_brain), using this package for parsing. Before sending one, coordinate with the maintainers: unmerged drafts for Willett 2023 and Card 2024 exist on brainsets branches `brain2text` and `brain2text25`. NWB copies go to DANDI only with the original lab's agreement.
 
+## Checking electrode order across releases
+
+Releases from the same participant do not always order electrodes the same way (see [ERRATA.md](ERRATA.md)). `ibci verify-mapping` checks one release's array order against another's, using the channel-correlation structure each array keeps across days and tasks:
+
+```bash
+ibci verify-mapping singerclark2025_cursor --source ibci_data/singerclark2025_cursor/raw     --source-files "*day00039*"     --reference-dataset card2024_speech --reference ibci_data/card2024_speech/extracted     --reference-files "*t15.2023.08.25/data_train*"
+```
+
+```
+verdict      consistent
+claimed      v6v, 4, 55b, d6v  r=0.236
+best         v6v, 4, 55b, d6v  r=0.236
+runner-up    r=0.148  (margin 0.088)
+support      1.00 over 200 bootstrap resamples
+gap          unknown; verdicts are calibrated for references within 120 days
+data         source 107856 bins of threshold_crossings; reference 70550 bins of threshold_crossings
+```
+
+(Singer-Clark dates its files by post-implant day and Card by calendar date, so the tool cannot compute the gap here. It is 0 days: Singer-Clark day 39 is 2023-08-25.)
+
+It scores every assignment of the source's arrays to the reference's and bootstraps over chunks of time. It gives `consistent` or `mismatch` only when at least 95% of resamples pick the same assignment, the winner beats the runner-up by at least 0.03, and the reference is within 120 days (when both sides carry dates or post-implant days); otherwise `inconclusive`, with the reason. Those thresholds come from a calibration against a known answer: Card 2024 keeps one order across 45 sessions, and over all 990 pairs of its sessions, plus 225 comparisons of other T15 releases against Card, no wrong assignment won by more than 0.028 when the reference was within 120 days. Further apart, wrong assignments won by up to 0.071, which is why distance matters as much as margin. It checks which block of channels is which array, not channel order within an array. Python: `ibci_datasets.verify.verify(source_recordings, reference_recordings)`.
+
 ## Errata
 
 Building readers against the full releases turned up places where files differ from their documentation, including an electrode order that changes between files of one release. See [ERRATA.md](ERRATA.md).

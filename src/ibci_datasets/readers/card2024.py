@@ -267,3 +267,12 @@ def iter_recordings(root: str | Path, block_table_csv: str | Path | None = None)
 def read(root: str | Path, block_table_csv: str | Path | None = None) -> list[Recording]:
     """Read every session and split under ``root``."""
     return list(iter_recordings(root, block_table_csv))
+
+
+# Uniform per-file access, used by tools that select files before loading them.
+def find_sources(root: str | Path) -> list[Path]:
+    return find_files(root)
+
+
+def read_source(path: str | Path, block_table_csv: str | Path | None = None) -> Recording:
+    return read_file(path, load_block_table(block_table_csv) if block_table_csv else None)

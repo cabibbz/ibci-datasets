@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import fnmatch
 import importlib
 import sys
@@ -88,6 +89,36 @@ def _cmd_convert(args) -> int:
     return 0
 
 
+def _load_selected(dataset_id: str, root: str, patterns: list[str] | None):
+    d = catalog.get(dataset_id)
+    if not d.reader:
+        raise SystemExit(f"error: no reader for {d.id} yet")
+    reader = importlib.import_module(f"ibci_datasets.readers.{d.reader}")
+    paths = reader.find_sources(root)
+    if patterns:
+        paths = [p for p in paths if any(fnmatch.fnmatch(Path(p).as_posix(), pat) for pat in patterns)]
+    if not paths:
+        raise SystemExit(f"error: no {d.id} files under {root} match {patterns}")
+    print(f"{d.id}: {len(paths)} file(s)", file=sys.stderr)
+    return [reader.read_source(p) for p in paths]
+
+
+def _cmd_verify_mapping(args) -> int:
+    from .verify import verify
+
+    src = _load_selected(args.dataset, args.source, args.source_files)
+    ref = _load_selected(args.reference_dataset, args.reference, args.reference_files)
+    r = verify(src, ref, feature=args.feature, reference_feature=args.reference_feature,
+               sigma_s=args.sigma_ms / 1000.0, n_bootstrap=args.bootstrap)
+    if args.json:
+        import json
+        out = dataclasses.asdict(r) | {"verdict": r.verdict, "margin": r.margin}
+        print(json.dumps(out, indent=2))
+    else:
+        print(r.summary())
+    return 0 if r.verdict in ("consistent", "matched (labels not comparable)") else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="ibci", description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -121,6 +152,21 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--out", required=True)
     s.add_argument("--block-table", help="card2024 only: t15_copyTaskData_description.csv")
     s.set_defaults(func=_cmd_convert)
+
+    s = sub.add_parser("verify-mapping",
+                       help="check a release's electrode-array order against another release (same participant)")
+    s.add_argument("dataset", help="catalog id of the release to check")
+    s.add_argument("--source", required=True, help="folder holding that release")
+    s.add_argument("--source-files", action="append", help="glob on file path; repeatable")
+    s.add_argument("--reference-dataset", required=True, help="catalog id of the trusted release")
+    s.add_argument("--reference", required=True, help="folder holding the reference release")
+    s.add_argument("--reference-files", action="append", help="glob on file path; repeatable")
+    s.add_argument("--feature", help="feature to compare (default: threshold crossings)")
+    s.add_argument("--reference-feature")
+    s.add_argument("--sigma-ms", type=float, default=50.0, help="Gaussian smoothing, ms (default 50)")
+    s.add_argument("--bootstrap", type=int, default=200)
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(func=_cmd_verify_mapping)
 
     args = p.parse_args(argv)
     return args.func(args)

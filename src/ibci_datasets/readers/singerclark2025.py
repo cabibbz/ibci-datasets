@@ -271,3 +271,12 @@ def iter_recordings(root: str | Path) -> Iterator[Recording]:
 def read(root: str | Path) -> list[Recording]:
     """Read every block under ``root`` (one Recording per block)."""
     return list(iter_recordings(root))
+
+
+# Uniform per-file access, used by tools that select files before loading them.
+def find_sources(root: str | Path) -> list[Path]:
+    return find_files(root)
+
+
+def read_source(path: str | Path) -> Recording:
+    return read_file(path)

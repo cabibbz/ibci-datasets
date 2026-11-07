@@ -25,12 +25,15 @@ smoothed features 6 s; both start at the same time (smoothed vs smoothed-raw cor
 Electrode order differs between files. The lab's pipeline has a
 ``using_correct_electrode_mapping`` flag; the companion scripts give T15's word-loudness
 session the flag-0 order (area 4, v6v, d6v, 55b) and later sessions the flag-1 order
-(v6v, area 4, 55b, d6v), the order documented for the Card 2024 release. We confirmed both
-by matching channel-correlation structure against Card 2024 sessions recorded by the same
-arrays: word-loudness matches flag-0 against all four Oct-Nov 2023 Card sessions tested;
-sentence-loudness matches flag-1 against all six (2023-2025). T16's order (55b/PEF, 6v,
-then two hand-knob arrays) is from the companion scripts only; there is no reference
-release to check it against.
+(v6v, area 4, 55b, d6v), the order documented for the Card 2024 release. We checked both
+with ``ibci verify-mapping`` against Card 2024 sessions recorded by the same arrays (see
+ERRATA.md). Sentence-loudness is consistent with the flag-1 order against all four Card
+references (margins 0.08-0.15). Word-loudness is consistent with the flag-0 order against
+Card 2023-11-04 (margin 0.033, just above the 0.03 threshold) and inconclusive against
+three other Oct-Nov 2023 sessions; no reference favours another order by a passing
+margin. So the word-loudness order rests mainly on the companion scripts, with weak
+support from the data. T16's order (55b/PEF, 6v, then two hand-knob arrays) is from the
+companion scripts only; other T16 releases are not yet read.
 
 Not converted: the sentence files' phoneme ``logits`` and partial decoder outputs (20 ms
 decoder clock, aligned through tracking ids the neural arrays lack) and
@@ -66,8 +69,9 @@ ARRAYS = {
                                ("hk1", "hand knob"), ("hk2", "hand knob")),
 }
 _MAPPING_SOURCE = {
-    ("t15", "word-loudness"): "companion scripts (flag 0) + correlation match to Card 2024, Oct-Nov 2023",
-    ("t15", "sentence-loudness"): "correlation match to Card 2024 sessions 2023-2025 (flag-1 order)",
+    ("t15", "word-loudness"): "companion scripts (flag 0); verify-mapping consistent vs Card 2023-11-04 "
+                              "(margin 0.033), inconclusive vs other Oct-Nov 2023 sessions",
+    ("t15", "sentence-loudness"): "verify-mapping consistent vs Card 2024-2025 sessions (flag-1 order)",
     ("t16", "word-loudness"): "companion scripts (psth.py) only; unverified",
 }
 
@@ -267,3 +271,12 @@ def iter_recordings(root: str | Path) -> Iterator[Recording]:
 
 def read(root: str | Path) -> list[Recording]:
     return list(iter_recordings(root))
+
+
+# Uniform per-file access, used by tools that select files before loading them.
+def find_sources(root: str | Path) -> list[Path]:
+    return find_files(root)
+
+
+def read_source(path: str | Path) -> Recording:
+    return read_file(path)
