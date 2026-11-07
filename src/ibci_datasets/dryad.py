@@ -59,6 +59,27 @@ class DryadFile:
 Opener = Callable[[urllib.request.Request], "object"]
 
 
+class _DropAuthOnCrossHostRedirect(urllib.request.HTTPRedirectHandler):
+    """Follow redirects, but never forward the bearer token to another host.
+
+    Dryad answers a download with a 302 to a pre-signed S3 URL. S3 rejects a request
+    that carries both a URL signature and an ``Authorization`` header (HTTP 400), and
+    the token should not leave datadryad.org anyway.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        new = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new is not None:
+            old_host = urllib.parse.urlsplit(req.full_url).netloc.lower()
+            new_host = urllib.parse.urlsplit(new.full_url).netloc.lower()
+            if new_host != old_host:
+                new.remove_header("Authorization")
+        return new
+
+
+_OPENER = urllib.request.build_opener(_DropAuthOnCrossHostRedirect())
+
+
 class DryadClient:
     def __init__(
         self,
@@ -72,7 +93,7 @@ class DryadClient:
         self._token_expiry = float("inf") if token else 0.0
         self._client_id = client_id
         self._client_secret = client_secret
-        self._open = opener or (lambda req: urllib.request.urlopen(req, timeout=timeout))
+        self._open = opener or (lambda req: _OPENER.open(req, timeout=timeout))
 
     @classmethod
     def from_env(cls, **kwargs) -> "DryadClient":

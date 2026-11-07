@@ -123,3 +123,23 @@ def test_safe_extract_blocks_traversal_and_filters(tmp_path):
         z.writestr("../escape.txt", b"no")
     with pytest.raises(DryadError, match="outside"):
         safe_extract(evil, tmp_path / "out2")
+
+
+def test_redirect_to_other_host_drops_token_but_keeps_range():
+    # Dryad 302s downloads to a pre-signed S3 URL; S3 returns 400 if the token follows.
+    import urllib.request
+
+    from ibci_datasets.dryad import _DropAuthOnCrossHostRedirect
+
+    handler = _DropAuthOnCrossHostRedirect()
+    req = urllib.request.Request(
+        "https://datadryad.org/api/v2/files/1/download",
+        headers={"Authorization": "Bearer tok-1", "Range": "bytes=10-"},
+    )
+    s3 = "https://bucket.s3.us-west-2.amazonaws.com/f?X-Amz-Signature=abc"
+    new = handler.redirect_request(req, None, 302, "Found", {}, s3)
+    assert not new.has_header("Authorization")
+    assert new.get_header("Range") == "bytes=10-"
+
+    same = handler.redirect_request(req, None, 302, "Found", {}, "https://datadryad.org/other")
+    assert same.get_header("Authorization") == "Bearer tok-1"
