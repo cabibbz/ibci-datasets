@@ -25,16 +25,14 @@ smoothed features 6 s; both start at the same time (smoothed vs smoothed-raw cor
 Electrode order differs between files. The lab's pipeline has a
 ``using_correct_electrode_mapping`` flag; the companion scripts give T15's word-loudness
 session the flag-0 order (area 4, v6v, d6v, 55b) and later sessions the flag-1 order
-(v6v, area 4, 55b, d6v), the order documented for the Card 2024 release. We checked both
-with ``ibci verify-mapping`` against Card 2024 sessions recorded by the same arrays (see
-ERRATA.md). Sentence-loudness is consistent with the flag-1 order against all four Card
-references (margins 0.08-0.15). Word-loudness is consistent with the flag-0 order against
-Card 2023-11-04 (margin 0.033, just above the 0.03 threshold) and inconclusive against
-three other Oct-Nov 2023 sessions; no reference favours another order by a passing
-margin. Deo 2026's T15 file (2023-08-27), which uses the same older column order, matches
-the word-loudness columns one to one (margin 0.074, support 1.00), so the order is
-independently confirmed. T16's order (55b/PEF, 6v, then two hand-knob arrays) is from the
-companion scripts only; other T16 releases are not yet read.
+(v6v, area 4, 55b, d6v), the order documented for the Card 2024 release. Checked with
+``ibci verify-mapping`` (see ERRATA.md): the sentence-loudness files are consistent with
+Card's order; for the word-loudness files Card's order is rejected against all six Card
+sessions within two weeks, and the companion scripts' flag-0 order is the one the reader
+uses (the data favour it but do not settle the exact assignment on their own). Deo 2026's
+T15 file matches the word-loudness columns one to one. T16's order (55b/PEF, 6v, then two
+hand-knob arrays) is from the companion scripts; comparisons with Deo 2026 and
+Rigotti-Thompson 2026 T16 data were inconclusive.
 
 Not converted: the sentence files' phoneme ``logits`` and partial decoder outputs (20 ms
 decoder clock, aligned through tracking ids the neural arrays lack) and
@@ -70,10 +68,11 @@ ARRAYS = {
                                ("hk1", "hand knob"), ("hk2", "hand knob")),
 }
 _MAPPING_SOURCE = {
-    ("t15", "word-loudness"): "companion scripts (flag 0); verify-mapping consistent vs Card 2023-11-04 "
-                              "(margin 0.033) and matches Deo 2026 T15 columns one to one (margin 0.074)",
+    ("t15", "word-loudness"): "companion scripts (flag 0); verify-mapping rejects Card's order vs 6 Card "
+                              "sessions within two weeks; matches Deo 2026 T15 columns one to one",
     ("t15", "sentence-loudness"): "verify-mapping consistent vs Card 2024-2025 sessions (flag-1 order)",
-    ("t16", "word-loudness"): "companion scripts (psth.py) only; unverified",
+    ("t16", "word-loudness"): "companion scripts (psth.py) only; verify-mapping vs Deo 2026 and "
+                              "Rigotti-Thompson 2026 T16 inconclusive",
 }
 
 _FILE_RE = re.compile(r"^(t1[56])_(word-loudness|sentence-loudness)_block_(\d+)\.mat$")

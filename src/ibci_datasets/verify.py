@@ -16,13 +16,25 @@ characteristic correlation structure that survives across days and tasks. So:
 
 It tests which block is which array, not channel order inside an array. Correlation
 ignores per-channel scale, so counts, rates and z-scored features compare directly.
-Calibration (scoping/scripts/calibrate_margin.py, November 2026): Card 2024 has one
-constant order across 45 sessions, so every pair of its sessions has a known answer.
-Over those 990 pairs plus 225 comparisons of other T15 releases against Card, no wrong
-assignment beat the correct one by more than 0.028 when the reference was within 120
-days; further apart, wrong assignments reached 0.071. Hence the verdict needs bootstrap
-support >= 0.95, a margin >= 0.03 over the runner-up, and, when the recordings carry dates
-or post-implant days, a reference within 120 days.
+
+Two scorings, because each fails differently:
+
+* **plain**: correlate the rearranged matrices as they are. It can pair arrays by their
+  overall within-array correlation strength, which preprocessing changes (Rigotti-Thompson
+  2026 T11 vs Deo 2026 T11 gave a confident wrong answer, margin 0.100).
+* **block-centred**: subtract each array-pair block's mean first, so only which channel
+  pairs correlate more than others counts. Immune to that, but noisy when the
+  identifying structure is weak.
+
+A verdict needs both to pick the same assignment, each with margin >= 0.03, bootstrap
+support >= 0.95 (a resample counts only if both scorings pick that assignment), and, when
+the recordings carry dates or post-implant days, a reference within 120 days.
+
+Calibration (scoping/scripts/calibrate_consensus.py, November 2026), on 1,215 comparisons
+with known answers (Card 2024 vs itself, 990 pairs; other T15 releases vs Card, 225):
+the rule gave 483 correct verdicts and no false ones within 120 days (and still none at
+any distance). Each scoring alone produced wrong winners. The calibration is mostly T15;
+treat other participants' verdicts with that in mind.
 """
 
 from __future__ import annotations
@@ -36,9 +48,16 @@ import numpy as np
 from .schema import Recording
 
 DEFAULT_FEATURES = ("threshold_crossings", "threshold_crossings_smoothed")
-MIN_MARGIN = 0.03  # above the largest wrong-assignment margin seen in calibration (0.028)
+MIN_MARGIN = 0.03  # per scoring; no false consensus verdicts in calibration at 0.02 or above
 MIN_SUPPORT = 0.95
-MAX_GAP_DAYS = 120  # calibration showed no wrong verdicts above MIN_MARGIN within this
+MAX_GAP_DAYS = 120  # kept as a guard: the calibration is mostly one participant (T15)
+# Rejecting a claimed order. In calibration, within 120 days, no independently known correct
+# order (Card 2024 vs itself, Singer-Clark 2025 vs Card) trailed the best by >= 0.02 under both
+# scorings. Srinivasan 2026 word-loudness, whose order is not independently known, trailed by
+# up to 0.028 (55-120 days away); further apart, correct orders trailed by up to 0.071. So a
+# claimed order is rejected only if it trails by >= 0.03 under both scorings, in >= 95% of
+# resamples, with a known gap <= 120 days.
+REJECT_DEFICIT = 0.03
 
 
 @dataclasses.dataclass
@@ -58,18 +77,43 @@ class Result:
     ranking: list[tuple[tuple[str, ...], float]]
     gap_days: float | None = None  # between source and reference, when both carry dates
     min_margin: float = MIN_MARGIN
+    best_centred: tuple[str, ...] | None = None  # None if only the plain scoring was run
+    margin_centred: float | None = None
+    deficit_claimed: float | None = None  # plain: best score minus the claimed order's score
+    deficit_claimed_centred: float | None = None
+    reject_support: float | None = None  # fraction of resamples where both deficits >= REJECT_DEFICIT
+
+    @property
+    def claimed_rejected(self) -> bool:
+        """The claimed order trails the best by >= REJECT_DEFICIT under both scorings, with the
+        reference within MAX_GAP_DAYS (when known). Answers "is the stated order wrong?" even when
+        the right order is not determined."""
+        if self.deficit_claimed is None or self.deficit_claimed_centred is None:
+            return False
+        # Unlike agreement verdicts, rejections did go wrong beyond 120 days in calibration
+        # (a correct order trailed by up to 0.071), so the gap must be known, not just unknown.
+        if self.gap_days is None or self.gap_days > MAX_GAP_DAYS:
+            return False
+        if self.reject_support is not None and self.reject_support < MIN_SUPPORT:
+            return False
+        return min(self.deficit_claimed, self.deficit_claimed_centred) >= REJECT_DEFICIT
 
     @property
     def margin(self) -> float:
+        """Plain-scoring margin of the best assignment over the runner-up."""
         return self.score_best - self.score_runner_up
 
     def reasons(self) -> list[str]:
         """Why a verdict is inconclusive (empty if it is not)."""
         out = []
+        if self.best_centred is not None and self.best_centred != self.best:
+            out.append(f"scorings disagree (block-centred picks {_fmt(self.best_centred)})")
         if self.support < MIN_SUPPORT:
             out.append(f"support {self.support:.2f} < {MIN_SUPPORT}")
         if self.margin < self.min_margin:
             out.append(f"margin {self.margin:.3f} < {self.min_margin}")
+        if self.margin_centred is not None and self.margin_centred < self.min_margin:
+            out.append(f"block-centred margin {self.margin_centred:.3f} < {self.min_margin}")
         if self.gap_days is not None and self.gap_days > MAX_GAP_DAYS:
             out.append(f"reference {self.gap_days:.0f} days away (> {MAX_GAP_DAYS})")
         return out
@@ -77,7 +121,7 @@ class Result:
     @property
     def verdict(self) -> str:
         if self.reasons():
-            return "inconclusive"
+            return "mismatch (correct order undetermined)" if self.claimed_rejected else "inconclusive"
         if self.claimed is None:
             return "matched (labels not comparable)"
         return "consistent" if self.best == self.claimed else "mismatch"
@@ -85,9 +129,18 @@ class Result:
     def summary(self) -> str:
         lines = [
             f"verdict      {self.verdict}",
-            f"claimed      {_fmt(self.claimed)}" + (f"  r={self.score_claimed:.3f}" if self.score_claimed is not None else ""),
+            f"claimed      {_fmt(self.claimed)}" + (f"  r={self.score_claimed:.3f}" if self.score_claimed is not None else "")
+            + (f"  trails best by {self.deficit_claimed:.3f} / {self.deficit_claimed_centred:.3f} (plain / centred)"
+               + (f"  -> claimed order REJECTED (in {self.reject_support:.2f} of resamples)"
+                  if self.claimed_rejected and self.reject_support is not None else
+                  ("  (rejection needs a known gap within 120 days)"
+                   if self.gap_days is None and min(self.deficit_claimed, self.deficit_claimed_centred) >= REJECT_DEFICIT
+                   else ""))
+               if self.deficit_claimed is not None and self.deficit_claimed_centred is not None else ""),
             f"best         {_fmt(self.best)}  r={self.score_best:.3f}",
             f"runner-up    r={self.score_runner_up:.3f}  (margin {self.margin:.3f})",
+            *([f"centred      {_fmt(self.best_centred)}  (margin {self.margin_centred:.3f})"]
+              if self.best_centred is not None else []),
             f"support      {self.support:.2f} over {self.n_bootstrap} bootstrap resamples",
             "gap          " + (f"{self.gap_days:.0f} days" if self.gap_days is not None
                                else f"unknown; verdicts are calibrated for references within {MAX_GAP_DAYS} days"),
@@ -205,6 +258,26 @@ def _corr(w: np.ndarray, n: np.ndarray, s1: np.ndarray, s2: np.ndarray) -> np.nd
     return c
 
 
+def _centre(c: np.ndarray, blocks) -> np.ndarray:
+    """Subtract each array-pair block's mean (diagonal excluded).
+
+    How strongly an array's channels correlate overall depends on preprocessing (common-
+    average or linear-regression referencing removes shared signal) and on the day; which
+    channel pairs correlate more than others is what identifies the array. Without this,
+    two-array comparisons can pair the more correlated array with the more correlated array
+    regardless of identity (seen: Rigotti-Thompson 2026 T11 vs Deo 2026 T11). Centring
+    commutes with moving whole blocks, so it is applied once per matrix.
+    """
+    c = c.copy()
+    for _, bi in blocks:
+        for _, bj in blocks:
+            sub = c[np.ix_(bi, bj)]
+            mask = ~np.eye(len(bi), dtype=bool) if bi[0] == bj[0] else np.ones(sub.shape, bool)
+            sub[mask] -= sub[mask].mean()
+            c[np.ix_(bi, bj)] = sub
+    return c
+
+
 def _rank(cs: np.ndarray, cr: np.ndarray, src_blocks, perms) -> np.ndarray:
     iu = np.triu_indices(cr.shape[0], 1)
     ref = cr[iu]
@@ -217,8 +290,12 @@ def _rank(cs: np.ndarray, cr: np.ndarray, src_blocks, perms) -> np.ndarray:
 
 def verify(source: Sequence[Recording], reference: Sequence[Recording], feature: str | None = None,
            reference_feature: str | None = None, sigma_s: float = 0.05, chunk_s: float = 10.0,
-           n_bootstrap: int = 200, seed: int = 0, min_margin: float = MIN_MARGIN) -> Result:
-    """Compare the array order of ``source`` recordings with ``reference`` recordings."""
+           n_bootstrap: int = 200, seed: int = 0, min_margin: float = MIN_MARGIN,
+           consensus: bool = True) -> Result:
+    """Compare the array order of ``source`` recordings with ``reference`` recordings.
+
+    With ``consensus`` (the default) both the plain and the block-centred scoring must agree;
+    ``consensus=False`` runs the plain scoring only (not calibrated as a verdict rule)."""
     if not source or not reference:
         raise ValueError("need at least one source and one reference recording")
     pids = {r.participant_id for r in [*source, *reference]}
@@ -241,27 +318,46 @@ def verify(source: Sequence[Recording], reference: Sequence[Recording], feature:
     def assignment(perm) -> tuple[str, ...]:  # array each source block is matched to
         return tuple(ref_labels[perm.index(i)] for i in range(len(sb)))
 
-    cs = _corr(np.ones(len(sn)), sn, s1, s2)
-    cr = _corr(np.ones(len(rn)), rn, r1, r2)
-    scores = _rank(cs, cr, sb, perms)
+    def score(w_s, w_r):
+        """(plain scores, centred scores or None) for one weighting of the chunks."""
+        cs, cr = _corr(w_s, sn, s1, s2), _corr(w_r, rn, r1, r2)
+        plain = _rank(cs, cr, sb, perms)
+        centred = _rank(_centre(cs, sb), _centre(cr, rb), sb, perms) if consensus else None
+        return plain, centred
+
+    scores, scores_c = score(np.ones(len(sn)), np.ones(len(rn)))
     order = np.argsort(-scores)
     best = assignment(perms[order[0]])
+    best_c = margin_c = None
+    if scores_c is not None:
+        order_c = np.argsort(-scores_c)
+        best_c = assignment(perms[order_c[0]])
+        margin_c = float(scores_c[order_c[0]] - scores_c[order_c[1]]) if len(order_c) > 1 else float("nan")
 
     claimed = tuple(a for a, _ in sb)
-    score_claimed = None
+    score_claimed = deficit = deficit_c = None
     if set(claimed) == set(ref_labels):
-        claimed_perm = tuple(claimed.index(a) for a in ref_labels)
-        score_claimed = float(scores[perms.index(claimed_perm)])
+        k = perms.index(tuple(claimed.index(a) for a in ref_labels))
+        score_claimed = float(scores[k])
+        deficit = float(scores.max() - scores[k])
+        if scores_c is not None:
+            deficit_c = float(scores_c.max() - scores_c[k])
     else:
         claimed = None
 
     rng = np.random.default_rng(seed)
-    wins = 0
+    wins = rejects = 0
+    k_claimed = perms.index(tuple(claimed.index(a) for a in ref_labels)) if claimed is not None else None
     for _ in range(n_bootstrap):
         ws = np.bincount(rng.integers(0, len(sn), len(sn)), minlength=len(sn)).astype(float)
         wr = np.bincount(rng.integers(0, len(rn), len(rn)), minlength=len(rn)).astype(float)
-        b = _rank(_corr(ws, sn, s1, s2), _corr(wr, rn, r1, r2), sb, perms)
-        wins += assignment(perms[int(np.argmax(b))]) == best
+        b, bc = score(ws, wr)
+        win = assignment(perms[int(np.argmax(b))]) == best
+        if bc is not None:
+            win = win and assignment(perms[int(np.argmax(bc))]) == best
+            if k_claimed is not None:
+                rejects += min(b.max() - b[k_claimed], bc.max() - bc[k_claimed]) >= REJECT_DEFICIT
+        wins += win
 
     return Result(
         reference_arrays=ref_labels,
@@ -279,4 +375,9 @@ def verify(source: Sequence[Recording], reference: Sequence[Recording], feature:
         ranking=[(assignment(perms[k]), float(scores[k])) for k in order],
         gap_days=_gap_days(source, reference),
         min_margin=min_margin,
+        best_centred=best_c,
+        margin_centred=margin_c,
+        deficit_claimed=deficit,
+        deficit_claimed_centred=deficit_c,
+        reject_support=(rejects / n_bootstrap if n_bootstrap and k_claimed is not None and consensus else None),
     )

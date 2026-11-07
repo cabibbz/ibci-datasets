@@ -117,3 +117,43 @@ def test_small_margin_or_distant_reference_is_inconclusive():
     # the gap is computed from dates when both sides carry them
     src.session_date, ref.session_date = dt.date(2024, 1, 1), dt.date(2024, 3, 1)
     assert verify([src], [ref], n_bootstrap=5).gap_days == 60
+
+
+def test_both_scorings_must_agree():
+    import dataclasses
+
+    ref = _rec((0, 1, 2, 3), ARRAYS, seed=1)
+    src = _rec((0, 1, 2, 3), ARRAYS, seed=2)
+    r = verify([src], [ref], n_bootstrap=20)
+    assert r.best_centred == r.best and r.margin_centred >= 0.03 and r.verdict == "consistent"
+    split = dataclasses.replace(r, best_centred=("4", "v6v", "55b", "d6v"))
+    assert split.verdict == "inconclusive" and "scorings disagree" in split.reasons()[0]
+    weak = dataclasses.replace(r, margin_centred=0.01)
+    assert weak.verdict == "inconclusive" and "block-centred margin" in weak.reasons()[0]
+    plain_only = verify([src], [ref], n_bootstrap=5, consensus=False)
+    assert plain_only.best_centred is None and plain_only.verdict == "consistent"
+
+
+def test_centring_ignores_block_level_strength():
+    """Damping one array's shared signal (as referencing can) must not flip the plain match into
+    a confident wrong consensus verdict."""
+    ref = _rec((0, 1, 2, 3), ARRAYS, seed=1)
+    load = _structure()
+    load[:PER, 0] *= 0.05  # array 0 loses almost all of its own shared signal in the source
+    src = _rec((0, 1, 2, 3), ARRAYS, seed=2, load=load)
+    r = verify([src], [ref], n_bootstrap=30)
+    assert r.verdict in ("consistent", "inconclusive"), r.summary()
+
+
+def test_rejection_of_a_wrong_claim():
+    ref = _rec((0, 1, 2, 3), ARRAYS, seed=1)
+    right = verify([_rec((0, 1, 2, 3), ARRAYS, seed=2)], [ref], n_bootstrap=10)
+    assert not right.claimed_rejected and right.deficit_claimed == 0.0
+    wrong = verify([_rec((1, 0, 3, 2), ARRAYS, seed=3)], [ref], n_bootstrap=10)
+    assert wrong.verdict == "mismatch"
+    assert not wrong.claimed_rejected  # no dates: rejection needs a known gap
+    import dataclasses
+    wrong = dataclasses.replace(wrong, gap_days=10.0)
+    assert wrong.claimed_rejected
+    undetermined = dataclasses.replace(wrong, margin_centred=0.001)  # best not settled, claim still rejected
+    assert undetermined.verdict == "mismatch (correct order undetermined)"

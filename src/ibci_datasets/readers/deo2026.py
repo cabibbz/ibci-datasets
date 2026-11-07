@@ -29,15 +29,14 @@ Findings from the data, beyond the README:
   T17); those trials are kept, end at the block end and are marked ``truncated``.
 * The arrays are named with the lab's codes, apparently position along the gyrus
   (``v`` ventral, ``m`` middle, ``d`` dorsal), not brain areas. The reader keeps those
-  names. For T15, ``ibci verify-mapping`` against Card 2024 sessions (including one on the
-  same day, 2023-08-27) places 55b at ``m1`` and d6v at ``v1`` against all six references
-  tried, and leans to area 4 / v6v for ``v2`` / ``v3``. Srinivasan 2026's word-loudness
-  files (same older column order) match Deo's T15 columns one to one, margin 0.074, which
-  confirms the whole assignment independently. So Deo's T15 columns are in the order
-  (4, v6v, d6v, 55b), not Card's (v6v, 4, 55b, d6v); T15 channel locations name the
-  inferred area and point to the evidence. For T5 and T11, Pun 2024's arrays ``a1`` / ``a2``
-  match Deo's ``d2`` / ``d1``. T16 could not be resolved against Srinivasan 2026
-  (near-tie). See ERRATA.md.
+  names. For T15, ``ibci verify-mapping`` rejects Card 2024's column order against Card's
+  same-day session (2023-08-27), and Deo's T15 columns match Srinivasan 2026's word-loudness
+  columns one to one; Card's order is rejected for those too, and their companion scripts
+  give area 4, v6v, d6v, 55b. Hence ``v2`` = area 4, ``v3`` = ventral 6v, ``v1`` = dorsal 6v,
+  ``m1`` = 55b. T15 channel locations name these inferred areas and point to the evidence.
+  For T5 and T11, Pun 2024's arrays ``a1`` / ``a2`` match Deo's ``d2`` / ``d1``. T16 could
+  not be resolved (near-ties against Srinivasan 2026 and Rigotti-Thompson 2026). See
+  ERRATA.md.
 
 Not converted: sorted units (they come from the same electrodes; the schema has no units
 table yet), ``tx_blkMeanSub`` (derivable), and ``T12_control.opticalFlow`` (movie-frame
@@ -62,10 +61,10 @@ STATE_DELAY, STATE_GO, STATE_RETURN = 0, 1, 2
 
 # ibci verify-mapping vs Card 2024 (see the module docstring and ERRATA.md).
 T15_AREA_EVIDENCE = {
-    "m1": "area 55b: 6 of 6 Card 2024 references incl. same day; Srinivasan 2026 word-loudness match",
-    "v1": "dorsal 6v: 6 of 6 Card 2024 references incl. same day; Srinivasan 2026 word-loudness match",
-    "v2": "area 4: 5 of 6 Card 2024 references (small margins); Srinivasan 2026 word-loudness match (margin 0.074)",
-    "v3": "ventral 6v: 5 of 6 Card 2024 references (small margins); Srinivasan 2026 word-loudness match (margin 0.074)",
+    "basis": "Card 2024 order rejected vs Card's same-day session (2023-08-27); columns match Srinivasan 2026 "
+             "word-loudness one to one (both scorings); Card order rejected for those too; their companion "
+             "scripts give the flag-0 order area 4, v6v, d6v, 55b",
+    "v2": "area 4", "v3": "ventral 6v", "v1": "dorsal 6v", "m1": "area 55b",
 }
 _T15_AREA = {"m1": "area 55b", "v1": "dorsal 6v", "v2": "area 4", "v3": "ventral 6v"}
 

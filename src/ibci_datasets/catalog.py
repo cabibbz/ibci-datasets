@@ -108,8 +108,9 @@ DATASETS: tuple[Dataset, ...] = (
        notes="Skip the PyTorch .pt decoders."),
     _D("rigottithompson2026_preparatory", "Rigotti-Thompson 2026 preparatory activity",
        ("T5", "T11", "T16"), "dryad", "doi:10.5061/dryad.brv15dvr9", "CC0-1.0", 1.54, "10-20",
-       None, "trials", "snel-repo/human-preparatory-activity-paper", "M",
-       notes="Figure-specific, heavily smoothed files; low value as training data."),
+       None, "trials", "snel-repo/human-preparatory-activity-paper", "M", reader="rigottithompson2026",
+       notes="Figure-specific, heavily smoothed files; low value as training data. The fig5 continuous "
+             "blocks keep all channels and are the most useful part."),
     _D("gusman2026_anthropomorphicity", "Gusman 2026 observation and anthropomorphicity",
        ("T11", "T17"), "dryad", "doi:10.5061/dryad.37pvmcw08", "CC0-1.0", 0.23, "20", None,
        "units", "jgusman/anthropomorphicity", "S"),
