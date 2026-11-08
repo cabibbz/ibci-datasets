@@ -33,7 +33,8 @@ Findings from the data, beyond the README:
   are 2023 sessions, for which the Srinivasan companion scripts give the order area 4, v6v,
   d6v, 55b (not Card 2024's). If Deo uses that order, ``v2`` = area 4, ``v3`` = ventral 6v,
   ``v1`` = dorsal 6v, ``m1`` = 55b. T15 channel locations give these as *inferred* and point
-  to the evidence; the authors have not confirmed them. For T5 and T11, Pun 2024's arrays
+  to the evidence; the authors have not confirmed them. Channel for channel, only the inferred area-4 block
+  matches Card's, so channel order inside the other arrays probably differs from Card's too. For T5 and T11, Pun 2024's arrays
   ``a1`` / ``a2`` match Deo's ``d2`` / ``d1`` (outside the T15-only calibration). T16 could
   not be resolved (near-ties against Srinivasan 2026, Rigotti-Thompson 2026 and Kunz 2025).
   See ERRATA.md.

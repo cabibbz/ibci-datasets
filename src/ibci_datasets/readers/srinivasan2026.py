@@ -30,7 +30,9 @@ session the flag-0 order (area 4, v6v, d6v, 55b) and later sessions the flag-1 o
 Card's order. For the word-loudness files the reader uses the companion scripts' flag-0
 order; the data are consistent with it (Deo 2026's T15 columns, also 2023, match these
 one to one; against Card sessions 0-15 days away Card's order is never the best) but no
-comparison gives a verdict. T16's order (55b/PEF, 6v, then two hand-knob arrays) is from
+comparison gives a verdict. Within arrays the channel order may also differ from Card's
+(channel-for-channel comparison matches only the 55b block), so electrode ids in these
+files may not correspond to Card's electrodes. T16's order (55b/PEF, 6v, then two hand-knob arrays) is from
 the companion scripts; comparisons with Deo 2026, Rigotti-Thompson 2026 and Kunz 2025 T16
 data are near-ties.
 
