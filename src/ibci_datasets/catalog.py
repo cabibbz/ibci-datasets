@@ -61,8 +61,9 @@ DATASETS: tuple[Dataset, ...] = (
        notes="FALCON H2 repackages these sessions plus five withheld ones."),
     _D("kunz2025_inner_speech", "Kunz 2025 inner speech",
        ("T12", "T15", "T16", "T17"), "dryad", "doi:10.5061/dryad.gf1vhhn1j", "CC0-1.0", 10.80,
-       None, None, "trials", None, "L",
-       notes="Eleven task folders; per-folder readmes are inside the zips."),
+       "10-20", None, "continuous", None, "L", reader="kunz2025",
+       notes="Eleven task folders; per-folder readmes are inside the zips. Three T12 files store negative "
+             "counts as uint8 and the T12 keyword-task files carry T15's array labels (see ERRATA.md)."),
     _D("wairagkar2025_voice", "Wairagkar 2025 instantaneous voice synthesis",
        ("T15",), "dryad", "doi:10.5061/dryad.2280gb64f", "CC0-1.0", 26.87, "10", None,
        "trials", "Neuroprosthetics-Lab/brain-to-voice-2025", "M",
