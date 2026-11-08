@@ -68,13 +68,17 @@ Generated with `ibci list --markdown`. "torch_brain: draft" means an unmerged pi
 
 | Dataset | Participants | Size (GB) | Bin (ms) | Layout | Reader | torch_brain |
 | --- | --- | --- | --- | --- | --- | --- |
-| [card2024_speech](https://datadryad.org/dataset/doi:10.5061/dryad.dncjsxm85) | T15 | 11.59 | 20 | trials | yes | draft |
 | [kunz2025_inner_speech](https://datadryad.org/dataset/doi:10.5061/dryad.gf1vhhn1j) | T12, T15, T16, T17 | 10.80 | 10-20 | continuous | yes | none |
+| [rigottithompson2026_preparatory](https://datadryad.org/dataset/doi:10.5061/dryad.brv15dvr9) | T5, T11, T16 | 1.54 | 10-20 | trials | yes | none |
+| [card2024_speech](https://datadryad.org/dataset/doi:10.5061/dryad.dncjsxm85) | T15 | 11.59 | 20 | trials | yes | draft |
+| [deo2026_mosaic](https://datadryad.org/dataset/doi:10.5061/dryad.mpg4f4rg5) | T5, T11, T12, T15, T16, T17 | 0.38 | 20 | continuous | yes | none |
+| [pun2024_instability](https://datadryad.org/dataset/doi:10.5061/dryad.n2z34tn5s) | T5, T11 | 0.41 | 20 | continuous | yes | none |
+| [singerclark2025_cursor](https://datadryad.org/dataset/doi:10.5061/dryad.prr4xgxzq) | T15 | 1.47 | 10 | continuous | yes | none |
+| [srinivasan2026_speech_modes](https://datadryad.org/dataset/doi:10.5061/dryad.2547d7x5w) | T15, T16 | 2.47 | 10 | trials | yes | none |
 | [gusman2025_drag_drop](https://datadryad.org/dataset/doi:10.5061/dryad.98sf7m0v1) | T11, T5 | 8.23 | 20 | continuous | planned | none |
 | [hahn2026_arrays](https://datadryad.org/dataset/doi:10.5061/dryad.x0k6djj1h) | T2, T3, T5, T6, T7, T8, T9, T10, T11 | 84.73 | 10 | continuous | planned | none |
 | [jude2026_anarthria](https://datadryad.org/dataset/doi:10.5061/dryad.vq83bk481) | T17 | 18.98 | 10 | continuous | planned | none |
 | [jude2026_typing](https://datadryad.org/dataset/doi:10.5061/dryad.cz8w9gjjk) | T17, T18 | 38.02 | 10 | continuous | planned | none |
-| [rigottithompson2026_preparatory](https://datadryad.org/dataset/doi:10.5061/dryad.brv15dvr9) | T5, T11, T16 | 1.54 | 10-20 | trials | yes | none |
 | [vargasirwin2025_gestures](https://datadryad.org/dataset/doi:10.5061/dryad.cvdncjtcq) | T11, T5 | 1.72 | 20 | trials | planned | none |
 | [wairagkar2025_voice](https://datadryad.org/dataset/doi:10.5061/dryad.2280gb64f) | T15 | 26.87 | 10 | trials | planned | none |
 | [willett2021_handwriting](https://datadryad.org/dataset/doi:10.5061/dryad.wh70rxwmv) | T5 | 1.41 | 10 | trials | planned | none |
@@ -83,13 +87,9 @@ Generated with `ibci list --markdown`. "torch_brain: draft" means an unmerged pi
 | [caltech_finger_rl](https://dandiarchive.org/dandiset/000252) | P1, N1 | 0.04 | ? | units | planned | none |
 | [caltech_ppc_finger](https://dandiarchive.org/dandiset/000147) | P1 | 0.08 | ? | units | planned | none |
 | [deo2024_bimanual](https://datadryad.org/dataset/doi:10.5061/dryad.sn02v6xbb) | T5 | 0.14 | 20 | trials | planned | none |
-| [deo2026_mosaic](https://datadryad.org/dataset/doi:10.5061/dryad.mpg4f4rg5) | T5, T11, T12, T15, T16, T17 | 0.38 | 20 | continuous | yes | none |
 | [falcon_h2](https://dandiarchive.org/dandiset/000950) | T5 | 1.22 | 20 | trials | planned | none |
 | [fan2023_corp](https://datadryad.org/dataset/doi:10.5061/dryad.hqbzkh1p6) | T5 | 3.57 | 20 | trials | planned | none |
 | [gusman2026_anthropomorphicity](https://datadryad.org/dataset/doi:10.5061/dryad.37pvmcw08) | T11, T17 | 0.23 | 20 | units | planned | none |
-| [pun2024_instability](https://datadryad.org/dataset/doi:10.5061/dryad.n2z34tn5s) | T5, T11 | 0.41 | 20 | continuous | yes | none |
-| [singerclark2025_cursor](https://datadryad.org/dataset/doi:10.5061/dryad.prr4xgxzq) | T15 | 1.47 | 10 | continuous | yes | none |
-| [srinivasan2026_speech_modes](https://datadryad.org/dataset/doi:10.5061/dryad.2547d7x5w) | T15, T16 | 2.47 | 10 | trials | yes | none |
 | [willsey2024_finger](https://datadryad.org/dataset/doi:10.5061/dryad.1jwstqk4f) | T5 | 0.18 | ? | continuous | planned | none |
 | [falcon_h1](https://dandiarchive.org/dandiset/000954) | HumanPitt | 0.10 | 20 | continuous | planned | merged |
 
@@ -109,7 +109,7 @@ Each torch_brain pipeline is contributed upstream to [neuro-galaxy/torch_brain](
 
 ## Checking electrode order across releases
 
-Releases from the same participant do not always order electrodes the same way (see [ERRATA.md](ERRATA.md)). `ibci verify-mapping` checks one release's array order against another's, using the channel-correlation structure each array keeps across days and tasks:
+Releases from the same participant do not always order electrodes the same way (see [ERRATA.md](ERRATA.md)). `ibci verify-mapping` checks one release's array order against another's, using channel-correlation structure that, for T15 at least, persists across days and tasks:
 
 ```bash
 ibci verify-mapping singerclark2025_cursor --source ibci_data/singerclark2025_cursor/raw \
@@ -131,7 +131,7 @@ data         source 107856 bins of threshold_crossings; reference 70550 bins of 
 
 (Singer-Clark dates its files by post-implant day and Card by calendar date, so the tool cannot compute the gap here. It is 0 days: Singer-Clark day 39 is 2023-08-25.)
 
-It scores every assignment of the source's arrays to the reference's in two ways: plain correlation-structure matching, and the same after subtracting each array-pair block's mean (preprocessing such as common-reference removal changes how strongly each array's channels correlate overall, which can fool the plain scoring). It gives `consistent`, `mismatch` or `matched` only when both scorings pick the same assignment, each with a margin of at least 0.03, in at least 95% of bootstrap resamples over chunks of time, and with the reference within 120 days when both sides are dated; otherwise `inconclusive`, with the reason. Separately, it reports how far the claimed order trails the best, and *rejects* the claimed order when it trails by at least 0.03 under both scorings in 95% of resamples with a known gap of at most 120 days, even if the correct order is not settled. These rules were calibrated on 1,215 comparisons with known answers (Card 2024 keeps one order across 45 sessions; other T15 releases against Card): no false verdicts. The calibration is mostly one participant (T15), so treat other participants' results with that in mind. It checks which block of channels is which array, not channel order within an array. Python: `ibci_datasets.verify.verify(source_recordings, reference_recordings)`.
+It scores every assignment of the source's arrays to the reference's in two ways: plain correlation-structure matching, and the same after subtracting each array-pair block's mean (preprocessing such as common-reference removal changes how strongly each array's channels correlate overall, which can fool the plain scoring). It gives `consistent`, `mismatch` or `matched` only when both scorings pick the same assignment, each with a margin of at least 0.03, with the same assignment winning both scorings in at least 95% of bootstrap resamples over chunks of time, and with the reference within 120 days when both sides are dated; otherwise `inconclusive`, with the reason. It also reports how far the claimed order trails the best; that is a diagnostic, not a test (an earlier rule that rejected trailing orders fired on unrelated data). The verdict rules were set and checked on the same 1,215 T15 comparisons (Card 2024 against itself across 45 sessions; Singer-Clark 2025 and Srinivasan 2026 against Card): no false verdicts, but every correct verdict was for a correct claimed order, so detecting a real mismatch has not been demonstrated, and other participants are outside the calibration. The bootstrap captures noise within a recording, not differences between days or releases. Treat `inconclusive` as the common outcome and a verdict as one line of evidence. It checks which block of channels is which array, not channel order within an array. Python: `ibci_datasets.verify.verify(source_recordings, reference_recordings)`.
 
 ## Errata
 

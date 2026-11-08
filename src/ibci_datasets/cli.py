@@ -77,6 +77,9 @@ def _cmd_convert(args) -> int:
     reader = importlib.import_module(f"ibci_datasets.readers.{d.reader}")
     kwargs = {}
     if args.block_table:
+        if d.reader != "card2024":
+            print("error: --block-table applies to card2024_speech only", file=sys.stderr)
+            return 2
         kwargs["block_table_csv"] = args.block_table
     # Prefer the lazy form so a large release is never held in memory all at once.
     recordings = getattr(reader, "iter_recordings", reader.read)(args.source, **kwargs)

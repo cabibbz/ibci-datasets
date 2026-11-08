@@ -27,16 +27,16 @@ Findings from the data, beyond the README:
   as its own column.
 * A few blocks end during a trial's Go state (8 trials in T12_control, 3 in T15, 7 in
   T17); those trials are kept, end at the block end and are marked ``truncated``.
-* The arrays are named with the lab's codes, apparently position along the gyrus
-  (``v`` ventral, ``m`` middle, ``d`` dorsal), not brain areas. The reader keeps those
-  names. For T15, ``ibci verify-mapping`` rejects Card 2024's column order against Card's
-  same-day session (2023-08-27), and Deo's T15 columns match Srinivasan 2026's word-loudness
-  columns one to one; Card's order is rejected for those too, and their companion scripts
-  give area 4, v6v, d6v, 55b. Hence ``v2`` = area 4, ``v3`` = ventral 6v, ``v1`` = dorsal 6v,
-  ``m1`` = 55b. T15 channel locations name these inferred areas and point to the evidence.
-  For T5 and T11, Pun 2024's arrays ``a1`` / ``a2`` match Deo's ``d2`` / ``d1``. T16 could
-  not be resolved (near-ties against Srinivasan 2026 and Rigotti-Thompson 2026). See
-  ERRATA.md.
+* The arrays are named with the lab's codes (undocumented; perhaps position along the
+  gyrus), not brain areas. The reader keeps those names. Deo's T15 columns match Srinivasan
+  2026's word-loudness columns one to one (``ibci verify-mapping``, both scorings), and both
+  are 2023 sessions, for which the Srinivasan companion scripts give the order area 4, v6v,
+  d6v, 55b (not Card 2024's). If Deo uses that order, ``v2`` = area 4, ``v3`` = ventral 6v,
+  ``v1`` = dorsal 6v, ``m1`` = 55b. T15 channel locations give these as *inferred* and point
+  to the evidence; the authors have not confirmed them. For T5 and T11, Pun 2024's arrays
+  ``a1`` / ``a2`` match Deo's ``d2`` / ``d1`` (outside the T15-only calibration). T16 could
+  not be resolved (near-ties against Srinivasan 2026, Rigotti-Thompson 2026 and Kunz 2025).
+  See ERRATA.md.
 
 Not converted: sorted units (they come from the same electrodes; the schema has no units
 table yet), ``tx_blkMeanSub`` (derivable), and ``T12_control.opticalFlow`` (movie-frame
@@ -59,11 +59,12 @@ DOI = "doi:10.5061/dryad.mpg4f4rg5"
 BIN_S = 0.020
 STATE_DELAY, STATE_GO, STATE_RETURN = 0, 1, 2
 
-# ibci verify-mapping vs Card 2024 (see the module docstring and ERRATA.md).
+# Inferred via Srinivasan 2026 (see the module docstring and ERRATA.md).
 T15_AREA_EVIDENCE = {
-    "basis": "Card 2024 order rejected vs Card's same-day session (2023-08-27); columns match Srinivasan 2026 "
-             "word-loudness one to one (both scorings); Card order rejected for those too; their companion "
-             "scripts give the flag-0 order area 4, v6v, d6v, 55b",
+    "basis": "inferred, not confirmed by the authors: columns match Srinivasan 2026 word-loudness one to one "
+             "(verify-mapping, both scorings); the Srinivasan companion scripts give 2023 sessions the flag-0 "
+             "order area 4, v6v, d6v, 55b; against Card 2024 sessions 0-9 days away that order is the "
+             "plain-scoring best in 5 of 6, with no verdict",
     "v2": "area 4", "v3": "ventral 6v", "v1": "dorsal 6v", "m1": "area 55b",
 }
 _T15_AREA = {"m1": "area 55b", "v1": "dorsal 6v", "v2": "area 4", "v3": "ventral 6v"}
@@ -105,7 +106,9 @@ def _load_v73(path: Path) -> dict:
                 if k in ("cueList", "chanSetNames", "stateNames"):
                     out[k] = [text(x) for x in items]
                 else:
-                    out[k] = [np.asarray(x).ravel().astype(np.int64) for x in items]
+                    # v7.3 stores an empty array as its shape, flagged MATLAB_empty
+                    out[k] = [np.zeros(0, np.int64) if x.attrs.get("MATLAB_empty", 0)
+                              else np.asarray(x).ravel().astype(np.int64) for x in items]
             elif k in ("details", "hemisphere"):
                 out[k] = text(ds)
             else:
@@ -141,6 +144,8 @@ def _channel_layout(sets, names, pid: str, hemisphere: str):
         if name.endswith("Sorted"):
             continue
         array = name.split("-", 1)[1] if name.startswith(f"{pid}-") else name
+        if len(idx) and min(idx) < 1:
+            raise ValueError(f"channel set {name!r} has a non-positive index (an empty MATLAB array?)")
         for i, c in enumerate(idx):
             cols.append(int(c) - 1)  # 1-based MATLAB indices
             ids.append(f"{array}-{i:02d}")

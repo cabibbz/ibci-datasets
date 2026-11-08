@@ -20,6 +20,11 @@ from ..schema import Recording
 _SPLIT_TO_DOMAIN = {"train": "train", "val": "valid", "valid": "valid", "test": "test"}
 
 
+def _utf8(v) -> np.ndarray:
+    """Bytes for HDF5. Not astype("S"), which is ASCII-only (Kunz 2025 cues include arrows)."""
+    return np.array([str(x).encode("utf-8") for x in np.asarray(v).ravel()], dtype=object).astype(bytes)
+
+
 def to_data(rec: Recording, brainset_id: str | None = None):
     try:
         from torch_brain.data import (
@@ -49,9 +54,9 @@ def to_data(rec: Recording, brainset_id: str | None = None):
         **{f.name: f.data.astype(np.float32) for f in rec.features},
     )
     channels = ArrayDict(
-        id=rec.channels.ids.astype("S"),
-        array=rec.channels.arrays.astype("S"),
-        location=rec.channels.locations.astype("S"),
+        id=_utf8(rec.channels.ids),
+        array=_utf8(rec.channels.arrays),
+        location=_utf8(rec.channels.locations),
     )
     parts = dict(neural=neural, channels=channels, domain=domain)
     if rec.behavior:
@@ -63,7 +68,7 @@ def to_data(rec: Recording, brainset_id: str | None = None):
     if rec.trials is not None and len(rec.trials):
         cols = {}
         for k, v in rec.trials.columns.items():
-            cols[k] = v.astype("S") if v.dtype.kind in "US" else v
+            cols[k] = _utf8(v) if v.dtype.kind in "US" else v
         parts["trials"] = Interval(start=rec.trials.start.astype(np.float64),
                                    end=rec.trials.end.astype(np.float64), **cols)
 

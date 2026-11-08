@@ -114,5 +114,64 @@ def test_allbehaviors_skipped_only_when_per_behaviour_files_exist(tmp_path):
     assert len(names) == 7 and not any("allBehaviors" in n for n in names)
 
 
+def test_columns_follow_chansets_and_6d_halves(tmp_path):
+    n = 600
+    tx = np.tile(np.arange(256, dtype=np.uint8)[None, :] % 200, (n, 1))  # column j holds value j % 200
+    perm = np.r_[np.arange(64, 128), np.arange(0, 64), np.arange(192, 256), np.arange(128, 192)] + 1
+    p = _write(tmp_path / "sentenceData" / "t16.2024.04.29_attempted_50words.mat", tx=tx,
+               sets=np.array([perm[:64], perm[64:128], perm[128:]], dtype=object),
+               names=np.array(["PEF", "ventral6v", "6d"], dtype=object),
+               extra={"sentenceText": _cells(["a", "b", "c"]), "decodedSentenceText": _cells(["", "", ""]),
+                      "sentenceDurations": np.array([[49], [49], [49]])})
+    r = kunz2025.read_file(p)[0]
+    x = r.feature("threshold_crossings").data[0]
+    np.testing.assert_array_equal(x, ((perm - 1) % 200).astype(np.float32))
+    assert r.channels.arrays[128] == "i6d" and x[128] == 192 % 200 and x[192] == 128
+    np.testing.assert_allclose(r.trials.columns["sentence_duration_s"], [0.98, 0.98])
+
+
+def test_num_targets_column(tmp_path):
+    p = _write(tmp_path / "conjunctiveCounting" / "t16.2024.05.01_counting.mat",
+               extra={"numTargets": np.array([[3], [5], [4]])})
+    r = kunz2025.read_file(p)[0]
+    assert r.trials.columns["num_targets"].tolist() == [3, 5]
+
+
+def test_spikepow_copy_of_crossings_is_dropped(tmp_path):
+    tx = np.random.default_rng(2).integers(0, 20, (600, 128)).astype(np.uint8)
+    p = _write(tmp_path / "interleavedVerbalBehaviors" / "t12.2024.04.11_interleavedVerbalBehaviors_raw.mat",
+               tx=tx, n_cols=128, sets=[np.arange(1, 65), np.arange(65, 129)], names=["i6v", "s6v"],
+               extra={"trialCues": np.array([[1, 2, 1]]), "cueList": _cells(["ban", "Do Nothing"]),
+                      "spikePow": tx.copy()})
+    r = kunz2025.read_file(p)[0]
+    assert [f.name for f in r.features] == ["threshold_crossings"]
+    assert "spike_band_power" in r.provenance["dropped_features"]
+
+
+def test_hidden_blocks_found_from_mean_subtraction(tmp_path):
+    rng = np.random.default_rng(3)
+    raw = rng.integers(0, 6, (600, 256)).astype(np.float64)
+    tx = raw.copy()
+    for a, b in ((0, 300), (300, 600)):
+        tx[a:b] -= tx[a:b].mean(axis=0)
+    p = _write(tmp_path / "seqRecallSpeech" / "t16.2024.07.17_binnedTX_spikePow_20ms.mat", blocks=False, tx=tx,
+               delay=((1, 100), (251, 300), (401, 450)), go=((101, 150), (301, 360), (451, 500)),
+               sets=np.array([np.arange(1, 65), np.arange(65, 129), np.arange(129, 257)], dtype=object),
+               names=np.array(["PEF/55b", "i6v", "6d"], dtype=object),
+               extra={"trialCues": np.array([[1, 2, 1]]), "cueList": _cells(["UP", "Do Nothing"])})
+    recs = kunz2025.read_file(p)
+    assert len(recs) == 2 and recs[0].provenance["block_boundaries"]["inferred_block_starts_0based"] == [300]
+    assert recs[0].feature("threshold_crossings").data.dtype == np.float64
+    # trial 2's delay starts in block 1, its go in block 2: clipped at block 2's start and marked
+    tr = recs[1].trials
+    assert tr.columns["truncated"].tolist() == [True, False] and tr.start[0] == 0.0
+
+
+def test_torch_brain_strings_are_utf8():
+    from ibci_datasets.writers.torch_brain import _utf8
+
+    assert _utf8(np.array(["↑ UP", "ab"])).tolist() == ["↑ UP".encode("utf-8"), b"ab"]
+
+
 def test_catalog_points_at_reader():
     assert catalog.get("kunz2025_inner_speech").reader == "kunz2025"

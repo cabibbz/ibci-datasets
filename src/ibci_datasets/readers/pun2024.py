@@ -24,7 +24,9 @@ Findings from the data, beyond the README:
   across-array, against an interleaved control). Which physical array is which is not
   stated, so they are labelled ``a1`` and ``a2``. ``ibci verify-mapping`` against Deo 2026
   matches ``a1`` / ``a2`` to Deo's ``d2`` / ``d1`` for T5 (margins 0.18-0.21) and T11
-  (margin 0.057 at day 800; inconclusive at day 658).
+  (margin 0.057 at day 800; inconclusive at day 658). Pun's post-implant days and Deo's
+  calendar dates cannot be compared, so the 120-day check was not applied, and T5/T11 are
+  outside the T15-only calibration.
 * Personal-use blocks have no intention labels or per-trial task fields; their
   ``startStops`` segments (1-27 s) are kept as trials, but what they delimit is not documented.
 * T11 day 689 block 14 has 76 rows of ``trialSuccess``, ``pathEfficiency`` and

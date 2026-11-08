@@ -21,7 +21,8 @@ Two scorings, because each fails differently:
 
 * **plain**: correlate the rearranged matrices as they are. It can pair arrays by their
   overall within-array correlation strength, which preprocessing changes (Rigotti-Thompson
-  2026 T11 vs Deo 2026 T11 gave a confident wrong answer, margin 0.100).
+  2026 T11 vs Deo 2026 T11 gave a confident answer, margin 0.100, that two indirect checks
+  contradict).
 * **block-centred**: subtract each array-pair block's mean first, so only which channel
   pairs correlate more than others counts. Immune to that, but noisy when the
   identifying structure is weak.
@@ -30,11 +31,19 @@ A verdict needs both to pick the same assignment, each with margin >= 0.03, boot
 support >= 0.95 (a resample counts only if both scorings pick that assignment), and, when
 the recordings carry dates or post-implant days, a reference within 120 days.
 
-Calibration (scoping/scripts/calibrate_consensus.py, November 2026), on 1,215 comparisons
-with known answers (Card 2024 vs itself, 990 pairs; other T15 releases vs Card, 225):
-the rule gave 483 correct verdicts and no false ones within 120 days (and still none at
-any distance). Each scoring alone produced wrong winners. The calibration is mostly T15;
-treat other participants' verdicts with that in mind.
+Calibration (scoping/scripts/calibrate_consensus.py, November 2026): 1,215 T15 comparisons
+(Card 2024 vs itself, 990 pairs; Singer-Clark 2025 and Srinivasan 2026 vs Card, 225), point
+estimates only, thresholds chosen on the same data. No false verdicts; 483 correct ones
+(462 within 120 days, 21 undated), all for correct claimed orders. 90 of the reference
+answers (Srinivasan) are themselves inferred, and the rule has not been shown to detect a
+known mismatch in real data. In a later review, unrelated data (Deo 2026 T16 labelled as
+T15) gave no confident verdict against any of 45 Card sessions. All of this is T15.
+
+The "claimed order trails the best" numbers are diagnostics, not a test. An earlier version
+rejected the claimed order when it trailed by >= 0.03 under both scorings; review showed
+that fires on data with no usable channel identity (Deo T16 labelled as T15: 18 of 26 Card
+sessions within 120 days) and rejected both candidate orders for Srinivasan word-loudness,
+so it no longer affects verdicts.
 """
 
 from __future__ import annotations
@@ -51,12 +60,8 @@ DEFAULT_FEATURES = ("threshold_crossings", "threshold_crossings_smoothed")
 MIN_MARGIN = 0.03  # per scoring; no false consensus verdicts in calibration at 0.02 or above
 MIN_SUPPORT = 0.95
 MAX_GAP_DAYS = 120  # kept as a guard: the calibration is mostly one participant (T15)
-# Rejecting a claimed order. In calibration, within 120 days, no independently known correct
-# order (Card 2024 vs itself, Singer-Clark 2025 vs Card) trailed the best by >= 0.02 under both
-# scorings. Srinivasan 2026 word-loudness, whose order is not independently known, trailed by
-# up to 0.028 (55-120 days away); further apart, correct orders trailed by up to 0.071. So a
-# claimed order is rejected only if it trails by >= 0.03 under both scorings, in >= 95% of
-# resamples, with a known gap <= 120 days.
+# Diagnostic threshold for how far the claimed order trails the best (both scorings). It does
+# NOT feed the verdict: see the module docstring.
 REJECT_DEFICIT = 0.03
 
 
@@ -85,9 +90,9 @@ class Result:
 
     @property
     def claimed_rejected(self) -> bool:
-        """The claimed order trails the best by >= REJECT_DEFICIT under both scorings, with the
-        reference within MAX_GAP_DAYS (when known). Answers "is the stated order wrong?" even when
-        the right order is not determined."""
+        """Diagnostic only, not a calibrated test and not used in ``verdict``: the claimed order
+        trails the best by >= REJECT_DEFICIT under both scorings in >= 95% of resamples, with a
+        known gap <= MAX_GAP_DAYS. It also fires on data that carry no usable channel identity."""
         if self.deficit_claimed is None or self.deficit_claimed_centred is None:
             return False
         # Unlike agreement verdicts, rejections did go wrong beyond 120 days in calibration
@@ -106,6 +111,8 @@ class Result:
     def reasons(self) -> list[str]:
         """Why a verdict is inconclusive (empty if it is not)."""
         out = []
+        if len(self.reference_arrays) < 2 or not np.isfinite(self.margin):
+            return ["fewer than two arrays: nothing to compare"]
         if self.best_centred is not None and self.best_centred != self.best:
             out.append(f"scorings disagree (block-centred picks {_fmt(self.best_centred)})")
         if self.support < MIN_SUPPORT:
@@ -121,7 +128,7 @@ class Result:
     @property
     def verdict(self) -> str:
         if self.reasons():
-            return "mismatch (correct order undetermined)" if self.claimed_rejected else "inconclusive"
+            return "inconclusive"
         if self.claimed is None:
             return "matched (labels not comparable)"
         return "consistent" if self.best == self.claimed else "mismatch"
@@ -131,7 +138,7 @@ class Result:
             f"verdict      {self.verdict}",
             f"claimed      {_fmt(self.claimed)}" + (f"  r={self.score_claimed:.3f}" if self.score_claimed is not None else "")
             + (f"  trails best by {self.deficit_claimed:.3f} / {self.deficit_claimed_centred:.3f} (plain / centred)"
-               + (f"  -> claimed order REJECTED (in {self.reject_support:.2f} of resamples)"
+               + (f"  (diagnostic, not a test: trails by >= {REJECT_DEFICIT} in {self.reject_support:.2f} of resamples)"
                   if self.claimed_rejected and self.reject_support is not None else
                   ("  (rejection needs a known gap within 120 days)"
                    if self.gap_days is None and min(self.deficit_claimed, self.deficit_claimed_centred) >= REJECT_DEFICIT

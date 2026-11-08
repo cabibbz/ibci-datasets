@@ -17,28 +17,36 @@ power, uV^2), ``goTrialEpochs`` / ``delayTrialEpochs`` (1-based inclusive bin ra
 Features are denoised by linear-regression referencing; the sequence-recall files are
 also block-mean subtracted. Most files have ``blockNum``; each block becomes one
 continuous Recording (data between blocks was not recorded). The sequence-recall files
-have no block markers, so each is one Recording whose block boundaries are unknown.
+have no block markers. Where crossings are stored as float64 (T16), the block-wise mean
+subtraction leaves each block's channel means' fractional parts in the data, which locates
+the block starts exactly (each segment then has zero mean on every channel); those files are
+split into blocks 1..n. Elsewhere (T12: integer or float32 storage, where rounding hides the
+offsets) each file is one Recording whose block boundaries are unknown.
 
 Findings from the data, beyond the readmes (see ERRATA.md):
 
+* **spikePow copied from binnedTX.** In ``t12.2024.04.11_interleavedVerbalBehaviors_raw.mat``
+  ``spikePow`` equals ``binnedTX`` element for element (uint8 counts 0-20; every other T12
+  file has spike power medians of 84-254 uV^2). The reader omits spike band power there.
 * **uint8 wraparound.** Three T12 sequence-recall files store block-mean-subtracted
-  crossings as uint8, so -1..-7 became 255..249 (about 20% of values). The reader reads
+  crossings as uint8, so -1..-9 became 255..247 (20-23% of values). The reader reads
   them back as int8 (detected by the empty gap between small and near-255 values) and
   records the fraction.
-* **Copied array labels.** The T12 ``chittychittybangbang`` files label their four
+* **Array labels match T15's.** The T12 ``chittychittybangbang`` files label their four
   64-channel blocks ``i6v, M1, 55b, s6v``, T15's names. Every other T12 file names only
-  ``i6v`` (1-64) and ``s6v`` (65-128); T12 has no M1 or 55b array. Matching channel-
+  ``i6v`` (1-64) and ``s6v`` (65-128); T12 has no area 4 or 55b array. Matching channel-
   correlation structure against two other T12 files puts the block labelled ``M1`` at
-  ``s6v`` (both scorings, margin ~0.15). The reader relabels blocks 2-4 as ``s6v``,
+  ``s6v`` (both scorings; margin 0.067 in the audit, but the references are over 120 days
+  away, outside the calibrated range). The reader relabels blocks 2-4 as ``s6v``,
   ``unnamed-1``, ``unnamed-2`` and records the release's labels.
 * **Bin size metadata.** ``t12.2024.12.19_..._eval.mat`` says 25 ms and
   ``t16.2024.04.29_imagined_50words_eval.mat`` 33 ms, against 20 ms for the other files of
   those sessions (the readmes say 10 or 20). Crossings per bin match the 20 ms files
-  (T16: 1.06x, where 33 ms bins would give 1.65x) and durations then line up, so 20 ms is
+  (T16: 1.02-1.09x, where 33 ms bins would give about 1.65x), so 20 ms is
   likely; the reader keeps the stated value and flags it in the provenance.
 * **T12 sentenceData files (2023-11-28).** ``binnedTX`` holds only the 128 named
-  channels, and ``sentenceFeatures`` (256 channels) does not match it at the go cue,
-  contrary to the readme. In the other sentence files it does.
+  channels, and ``sentenceFeatures`` (256 channels) holds them in a different channel order
+  plus 128 more, contrary to the readme. In the other sentence files it matches.
 * ``t16.2024.12.18_imagined_125kwords.mat`` has 123 decoded sentences for 125 trials, with
   no way to tell which trials lack one; that column is omitted for this file.
 * ``isolatedVerbalBehaviors/*_allBehaviors_raw.mat`` repeats the seven per-behaviour files of
@@ -78,6 +86,9 @@ _T12_KEYWORD_LABELS = ("i6v", "s6v", "unnamed-1", "unnamed-2")
 # allBehaviors_raw.mat is these seven files' blocks concatenated, byte for byte, with "-<behaviour>" on each cue.
 _BEHAVIOURS = ("attempted", "mouthed", "imagined1stMotor", "imagined1stAuditory", "imaginedListening", "listening",
                "reading")
+_FIELDS = ("binnedTX", "spikePow", "binSize", "chanSets", "chanSetNames", "delayTrialEpochs", "goTrialEpochs",
+           "blockNum", "trialCues", "cueList", "sentenceText", "decodedSentenceText", "sentenceDurations",
+           "numTargets")
 _BIN_SIZE_SUSPECT = {"t12.2024.12.19_chittychittybangbang_50words_eval.mat",
                      "t16.2024.04.29_imagined_50words_eval.mat"}
 
@@ -85,7 +96,7 @@ _BIN_SIZE_SUSPECT = {"t12.2024.12.19_chittychittybangbang_50words_eval.mat",
 def _loadmat(path: Path) -> dict:
     import scipy.io
 
-    return scipy.io.loadmat(str(path))
+    return scipy.io.loadmat(str(path), variable_names=list(_FIELDS))
 
 
 def find_files(root: str | Path) -> list[Path]:
@@ -121,6 +132,32 @@ def _fix_wraparound(tx: np.ndarray) -> tuple[np.ndarray, float | None]:
     return tx, None
 
 
+def _infer_blocks(tx: np.ndarray) -> np.ndarray | None:
+    """Block starts (0-based rows) in a file without blockNum, from its block-wise mean subtraction.
+
+    Float crossings minus a per-block channel mean keep that mean's fractional part, constant
+    within a block, so most channels' fractional parts change together at a block start. The
+    result is accepted only if every segment then has zero mean on every channel.
+    """
+    if tx.dtype.kind != "f" or len(tx) < 3:
+        return None
+    frac = np.round(np.mod(tx, 1.0), 6)
+    starts = np.flatnonzero(np.mean(frac[1:] != frac[:-1], axis=1) > 0.5) + 1
+    if not len(starts):
+        return None
+    bounds = np.r_[0, starts, len(tx)]
+    if np.any(np.diff(bounds) < 2):
+        return None
+    for a, b in zip(bounds[:-1], bounds[1:]):
+        if np.abs(tx[a:b].mean(axis=0)).max() > 1e-6:
+            return None
+    return starts
+
+
+def _as_float(a: np.ndarray) -> np.ndarray:
+    return a.astype(np.float64) if a.dtype == np.float64 else a.astype(np.float32)
+
+
 def _layout(pid: str, names: list[str], sets: list[np.ndarray], n_cols: int, keyword_t12: bool):
     """Return (column order, array ids, original label per column)."""
     blocks = []  # (array id, 0-based columns, original label)
@@ -153,8 +190,12 @@ def _layout(pid: str, names: list[str], sets: list[np.ndarray], n_cols: int, key
         for i in range(len(b)):
             ids.append(f"{array}-{i:02d}")
             arrays.append(array)
-            locs.append(f"{array} (HCP-parcellation name from the release)" if not array.startswith("unnamed")
-                        else "array not named in the release")
+            if array.startswith("unnamed"):
+                locs.append("array not named in the release")
+            elif array == orig:
+                locs.append(f"{array} (HCP-parcellation name from the release)")
+            else:
+                locs.append(f"{array} (release label {orig!r}; renamed by ibci-datasets, see the reader docs)")
     return cols, Channels(np.array(ids), np.array(arrays), np.array(locs)), origs
 
 
@@ -174,6 +215,8 @@ def read_file(path: str | Path) -> list[Recording]:
     n, n_cols = tx.shape
     if sbp.shape != tx.shape:
         raise ValueError(f"{path.name}: binnedTX {tx.shape} vs spikePow {sbp.shape}")
+    # Seen once (t12.2024.04.11_interleavedVerbalBehaviors_raw): spikePow is binnedTX, element for element.
+    sbp_is_copy = bool(np.array_equal(sbp, tx_raw))
     bin_s = float(np.asarray(d["binSize"]).ravel()[0]) / 1000.0
     names = [s.strip() for s in _strings(d["chanSetNames"])]
     cs = np.asarray(d["chanSets"])
@@ -201,7 +244,8 @@ def read_file(path: str | Path) -> list[Recording]:
                                          "Final closed-loop decoded sentence; empty in open-loop blocks")
     if "sentenceDurations" in d:
         per_trial["sentence_duration_s"] = (np.asarray(d["sentenceDurations"]).ravel().astype(np.float64) * bin_s,
-                                            "Go-period (sentence production) duration from sentenceDurations")
+                                            ("Release's sentenceDurations x bin size; equals the go window minus one bin "
+                                             "(go epochs are inclusive at both ends)"))
     if "numTargets" in d:
         per_trial["num_targets"] = (np.asarray(d["numTargets"]).ravel().astype(np.int64), "Correct count for the trial")
     dropped = {}
@@ -214,10 +258,17 @@ def read_file(path: str | Path) -> list[Recording]:
         if len(v) != k:
             raise ValueError(f"{path.name}: {key} has {len(v)} rows for {k} trials")
 
-    block = np.asarray(d["blockNum"]).ravel().astype(np.int64) if "blockNum" in d else np.zeros(n, np.int64)
+    inferred = None
+    if "blockNum" in d:
+        block = np.asarray(d["blockNum"]).ravel().astype(np.int64)
+    else:
+        block = np.zeros(n, np.int64)
+        inferred = _infer_blocks(tx)
+        if inferred is not None:
+            block = np.searchsorted(inferred, np.arange(n), side="right") + 1
     if len(block) != n:
         raise ValueError(f"{path.name}: blockNum length {len(block)} != {n}")
-    has_blocks = "blockNum" in d
+    has_blocks = "blockNum" in d or inferred is not None
     go0 = go[:, 0] - 1  # 0-based first go bin
 
     provenance_base = {
@@ -243,10 +294,18 @@ def read_file(path: str | Path) -> list[Recording]:
     if path.name in _BIN_SIZE_SUSPECT:
         provenance_base["bin_size_suspect"] = ("binSize disagrees with the session's other files (20 ms); "
                                                "crossings per bin and durations suggest 20 ms")
-    if not has_blocks:
-        provenance_base["block_boundaries"] = "not marked in the release (blocks concatenated)"
+    if inferred is not None:
+        provenance_base["block_boundaries"] = {
+            "inferred_block_starts_0based": [int(x) for x in inferred],
+            "note": ("not marked in the release; found where the block-wise mean subtraction changes "
+                     "(each segment has zero mean on every channel). Block numbers are 1..n in file order."),
+        }
+    elif not has_blocks:
+        provenance_base["block_boundaries"] = "not marked in the release and not recovered (blocks concatenated)"
     if dropped:
         provenance_base["dropped_columns"] = dropped
+    if sbp_is_copy:
+        provenance_base["dropped_features"] = {"spike_band_power": "spikePow is identical to binnedTX in this file"}
 
     recs = []
     for b in np.unique(block):
@@ -263,15 +322,21 @@ def read_file(path: str | Path) -> list[Recording]:
             s, e = np.clip(s, r0, r1), np.clip(e, r0, r1)
             columns = {"go_time": (go0[mine] - r0) * bin_s, "truncated": cut}
             descriptions = {"go_time": "Go cue (start of goTrialEpochs)",
-                            "truncated": "Delay or go window extends past the recording and was clipped"}
+                            "truncated": "Delay or go window extends past its block and was clipped"}
             for key, (v, desc_k) in per_trial.items():
                 columns[key] = v[mine]
                 descriptions[key] = desc_k
             trials = Trials(start=(s - r0) * bin_s, end=(e - r0) * bin_s, columns=columns, descriptions=descriptions)
-        x_tx = tx[r0:r1][:, cols].astype(np.float32)
-        x_sp = sbp[r0:r1][:, cols].astype(np.float32)
+        x_tx = _as_float(tx[r0:r1][:, cols])
         mean_sub = folder.startswith("seqRecall")
         norm = "linear-regression referenced" + ("; block-wise mean subtracted" if mean_sub else "")
+        features = [Feature("threshold_crossings", x_tx, "count" + (" (mean-subtracted)" if mean_sub else ""),
+                            "Binned threshold crossings (-3.5 or -4.5 x RMS, per participant)", normalization=norm)]
+        if not sbp_is_copy:
+            features.append(Feature("spike_band_power", _as_float(sbp[r0:r1][:, cols]),
+                                    "uV^2" + (" (mean-subtracted)" if mean_sub else ""),
+                                    "Spike band power: mean squared high-passed (250 Hz) voltage per bin",
+                                    normalization=norm))
         recs.append(Recording(
             dataset_id=DATASET_ID,
             session_id=f"{pid.lower()}_{date.isoformat()}_{folder}_{desc}" + (f"_block{int(b):02d}" if has_blocks else ""),
@@ -280,17 +345,13 @@ def read_file(path: str | Path) -> list[Recording]:
             bin_size_s=bin_s,
             timestamps=bin_s * (np.arange(r1 - r0) + 0.5),
             channels=ch,
-            features=[
-                Feature("threshold_crossings", x_tx, "count" + (" (mean-subtracted)" if mean_sub else ""),
-                        "Binned threshold crossings (-3.5 or -4.5 x RMS, per participant)", normalization=norm),
-                Feature("spike_band_power", x_sp, "uV^2" + (" (mean-subtracted)" if mean_sub else ""),
-                        "Spike band power: mean squared high-passed (250 Hz) voltage per bin", normalization=norm),
-            ],
+            features=features,
             trials=trials,
             session_date=date,
             task=f"{folder}: {desc}",
             timeline="continuous",
             provenance={**provenance_base, "block": int(b) if has_blocks else None,
+                        "block_inferred": inferred is not None,
                         "time_origin": "start of the block" if has_blocks else "start of the file"},
         ))
     return recs

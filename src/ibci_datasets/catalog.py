@@ -126,7 +126,7 @@ DATASETS: tuple[Dataset, ...] = (
     _D("wilson2025_recalibration", "Wilson 2025 long-term unsupervised recalibration",
        ("T5",), "dryad", "doi:10.5061/dryad.1jwstqk6g", "CC0-1.0", 1.69, None, None,
        "continuous", "guyhwilson/nonstationarities", "M",
-       notes="Unnamed positional struct fields; one day has its arrays swapped."),
+       notes="Unnamed positional struct fields; one day has its arrays swapped, per the companion code (not yet checked on the data)."),
     _D("pun2024_instability", "Pun 2024 recording instability (MINDFUL)",
        ("T5", "T11"), "dryad", "doi:10.5061/dryad.n2z34tn5s", "CC0-1.0", 0.41, "20", "-3.5 RMS",
        "continuous", "ewinapun/MINDFUL", "S", reader="pun2024",

@@ -25,8 +25,9 @@ electrode index (``a2-05`` = array 2, electrode 5), also for the dropped-channel
 Array correspondence (see ERRATA.md): the ``fig1-4`` kept channels concentrate on Deo 2026's
 most active channels with the columns taken straight, suggesting ``a1`` / ``a2`` = Deo's
 ``d2`` / ``d1`` for T5 and T11. Channel-correlation comparisons of the continuous blocks with
-Deo, Pun and Srinivasan were inconclusive; for T11 the two scorings of ``ibci
-verify-mapping`` disagreed, which is how the block-centred scoring came to be needed.
+Deo, Pun, Srinivasan and Kunz were inconclusive; for T11 vs Deo the plain scoring of
+``ibci verify-mapping`` preferred the swapped order (margin 0.100) and the block-centred
+scoring disagreed, which is why verdicts now need both.
 
 Not converted: ``fig5_*_start*.h5`` (no neural data) and ``fig5_*_onset.h5`` (onset-aligned
 windows, mostly duplicating training blocks not otherwise released as streams). Session
@@ -197,9 +198,14 @@ def read_continuous(path: str | Path) -> Recording:
     clock = np.asarray(data["clock_time"], dtype=np.float64) / 1000.0
     steps = np.diff(clock)
     bin_s = round(float(np.median(steps)), 6)
-    t0 = clock[0]
+    # clock_time is taken as each bin's centre; the origin is half a bin before the first, so
+    # timestamps are bin centres as in every other reader (trial times shift with them).
+    t0 = clock[0] - bin_s / 2
     ts = clock - t0
     norm = "z-scored by the authors after causal exponential smoothing (tau 28-70 ms)"
+    peak = float(np.nanmax(np.abs(x)))
+    if int(np.sum(np.abs(x) == peak)) > 10:  # many values exactly at the extreme: clipped
+        norm += f"; clipped at +/-{peak:g}"
 
     behavior = [
         Signal("cursor_position", np.asarray(data["cursor_data"], np.float32), "px", "Cursor position", ("x", "y")),
@@ -245,7 +251,7 @@ def read_continuous(path: str | Path) -> Recording:
         task=_TASKS["fig5"],
         timeline="continuous",
         behavior=behavior,
-        provenance=_provenance(path, pid, figure="fig5", time_origin="first bin of the block (clock_time - clock_time[0])",
+        provenance=_provenance(path, pid, figure="fig5", time_origin="half a bin before the block's first clock_time (clock_time read as bin centres)",
                                preparatory_decoder_channels=np.asarray(keep).tolist(),
                                bin_steps_ms=sorted({int(round(s * 1000)) for s in steps})),
     )

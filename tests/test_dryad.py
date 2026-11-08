@@ -143,3 +143,45 @@ def test_redirect_to_other_host_drops_token_but_keeps_range():
 
     same = handler.redirect_request(req, None, 302, "Found", {}, "https://datadryad.org/other")
     assert same.get_header("Authorization") == "Bearer tok-1"
+
+    down = handler.redirect_request(req, None, 302, "Found", {}, "http://datadryad.org/other")
+    assert not down.has_header("Authorization")
+
+
+@pytest.mark.parametrize("name", ["D:escaped.bin", "C:\\x.bin", "a:stream"])
+def test_drive_and_stream_names_are_refused(name):
+    with pytest.raises(DryadError):
+        DryadFile(name, 1, None, None, "https://example.invalid").safe_name
+
+
+def test_expired_static_token_is_refreshed_from_credentials(tmp_path):
+    client = DryadClient(token="expired", client_id="id", client_secret="s", opener=FakeDryad())
+    (f,) = client.files("doi:x")
+    assert client.download(f, tmp_path).read_bytes() == PAYLOAD
+
+
+def test_rejected_client_credentials_raise_auth_error(tmp_path):
+    def opener(req):
+        if req.full_url.endswith("/oauth/token"):
+            raise urllib.error.HTTPError(req.full_url, 401, "Unauthorized", {}, None)
+        return FakeDryad()(req)
+
+    client = DryadClient(client_id="id", client_secret="bad", opener=opener)
+    (f,) = client.files("doi:x")
+    with pytest.raises(DryadAuthError, match="client credentials"):
+        client.download(f, tmp_path)
+
+
+def test_zero_byte_file(tmp_path):
+    f = DryadFile("empty.txt", 0, hashlib.sha256(b"").hexdigest(), "sha-256", "https://example.invalid")
+    assert DryadClient(opener=FakeDryad()).download(f, tmp_path).read_bytes() == b""
+
+
+def test_md5_digest_is_checked(tmp_path):
+    client = DryadClient(token="tok-1", opener=FakeDryad())
+    (f,) = client.files("doi:x")
+    bad = DryadFile(f.path, f.size, "0" * 32, "md5", f.download_url)
+    with pytest.raises(DryadError, match="checksum"):
+        client.download(bad, tmp_path)
+    good = DryadFile(f.path, f.size, hashlib.md5(PAYLOAD).hexdigest().upper(), "MD5", f.download_url)
+    assert client.download(good, tmp_path).read_bytes() == PAYLOAD

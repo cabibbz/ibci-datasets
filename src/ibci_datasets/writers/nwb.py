@@ -34,6 +34,7 @@ def to_nwbfile(rec: Recording):
     except ImportError as e:  # pragma: no cover
         raise ImportError("NWB output needs pynwb: pip install 'ibci-datasets[nwb]'") from e
 
+    # NWB requires a start time; undated releases get a placeholder that the file says is one.
     date = rec.session_date or dt.date(1900, 1, 1)
     start = dt.datetime(date.year, date.month, date.day, tzinfo=dt.timezone.utc)
     notes = {
@@ -43,6 +44,7 @@ def to_nwbfile(rec: Recording):
         "split": rec.split,
         "post_implant_day": rec.post_implant_day,
         "time_of_day_known": False,
+        "session_date_known": rec.session_date is not None,
         **rec.provenance,
     }
     nwb = NWBFile(
@@ -58,7 +60,11 @@ def to_nwbfile(rec: Recording):
         notes=json.dumps(notes, default=str),
         data_collection=(
             f"Converted by ibci-datasets from {rec.provenance.get('source', 'the original release')}. "
-            "Session start is the recording date at 00:00 UTC; time of day is not in the release. "
+            + ("Session start is the recording date at 00:00 UTC; time of day is not in the release. "
+               if rec.session_date is not None else
+               "The release gives no recording date: session start 1900-01-01 is a placeholder"
+               + (f" (post-implant day {rec.post_implant_day})" if rec.post_implant_day is not None else "")
+               + ". ")
             + ("Trials were released as separate segments and are laid end to end with gaps, "
                "so times are not wall-clock times." if rec.timeline == "concatenated-trials" else "")
         ),
@@ -73,7 +79,9 @@ def to_nwbfile(rec: Recording):
 
     device = nwb.create_device(name="microelectrode_arrays", description="Intracortical microelectrode arrays")
     groups = {}
-    for array_id, location in dict(zip(rec.channels.arrays, rec.channels.locations)).items():
+    for array_id in dict.fromkeys(rec.channels.arrays):
+        locs = set(rec.channels.locations[rec.channels.arrays == array_id].tolist())
+        location = locs.pop() if len(locs) == 1 else "mixed; see each electrode's location"
         groups[array_id] = nwb.create_electrode_group(
             name=f"array_{array_id}", description=f"Array {array_id}", location=str(location), device=device
         )

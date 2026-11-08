@@ -70,9 +70,10 @@ def test_continuous_file(rt_root):
     assert rec.channels.ids[64] == "a2-00"
     assert rec.feature("threshold_crossings").data.shape == (300, 256)
     tr = rec.trials
-    np.testing.assert_allclose(tr.start, [0.4, 2.4])
+    np.testing.assert_allclose(tr.start, [0.41, 2.41])  # origin half a bin before the first clock_time
     assert np.isnan(tr.columns["go_cue_time"][1]) and np.isnan(tr.columns["decoded_onset_time"][1])
-    assert tr.columns["decoded_onset_time"][0] == pytest.approx(1.2)
+    assert tr.columns["decoded_onset_time"][0] == pytest.approx(1.21)
+    assert rec.timestamps[0] == pytest.approx(0.01)  # bin centres
     assert {s.name for s in rec.behavior} >= {"cursor_position", "emg", "move_state_probability"}
     assert rec.provenance["preparatory_decoder_channels"] == [5, 70, 300]
 

@@ -18,8 +18,8 @@ smoothed (``threshcross``, ``spikepow``). Word-loudness files also carry unsmoot
 Trial layout (word-loudness), established from the companion analysis scripts and checked
 on the data: every per-trial array starts 1 s (100 bins) before the delay period; the go
 cue follows the delay (``delay_duration_ms``); ``speech_onsets`` / ``speech_offsets`` are
-30 kHz sample counts from the go cue. ``raw_threshcross`` covers 3 s after the go cue, the
-smoothed features 6 s; both start at the same time (smoothed vs smoothed-raw correlation
+30 kHz sample counts from the go cue. ``raw_threshcross`` covers 3 s after the go cue (4 s in
+most T16 blocks), the smoothed features 3 s more; both start at the same time (smoothed vs smoothed-raw correlation
 0.97 at lag 0, negative at lag 300). Raw counts are NaN-padded to the smoothed length.
 
 Electrode order differs between files. The lab's pipeline has a
@@ -27,12 +27,12 @@ Electrode order differs between files. The lab's pipeline has a
 session the flag-0 order (area 4, v6v, d6v, 55b) and later sessions the flag-1 order
 (v6v, area 4, 55b, d6v), the order documented for the Card 2024 release. Checked with
 ``ibci verify-mapping`` (see ERRATA.md): the sentence-loudness files are consistent with
-Card's order; for the word-loudness files Card's order is rejected against all six Card
-sessions within two weeks, and the companion scripts' flag-0 order is the one the reader
-uses (the data favour it but do not settle the exact assignment on their own). Deo 2026's
-T15 file matches the word-loudness columns one to one. T16's order (55b/PEF, 6v, then two
-hand-knob arrays) is from the companion scripts; comparisons with Deo 2026 and
-Rigotti-Thompson 2026 T16 data were inconclusive.
+Card's order. For the word-loudness files the reader uses the companion scripts' flag-0
+order; the data are consistent with it (Deo 2026's T15 columns, also 2023, match these
+one to one; against Card sessions 0-15 days away Card's order is never the best) but no
+comparison gives a verdict. T16's order (55b/PEF, 6v, then two hand-knob arrays) is from
+the companion scripts; comparisons with Deo 2026, Rigotti-Thompson 2026 and Kunz 2025 T16
+data are near-ties.
 
 Not converted: the sentence files' phoneme ``logits`` and partial decoder outputs (20 ms
 decoder clock, aligned through tracking ids the neural arrays lack) and
@@ -68,11 +68,11 @@ ARRAYS = {
                                ("hk1", "hand knob"), ("hk2", "hand knob")),
 }
 _MAPPING_SOURCE = {
-    ("t15", "word-loudness"): "companion scripts (flag 0); verify-mapping rejects Card's order vs 6 Card "
-                              "sessions within two weeks; matches Deo 2026 T15 columns one to one",
+    ("t15", "word-loudness"): "companion scripts (flag 0, 2023 sessions); consistent with the data, not proven "
+                              "by them: matches Deo 2026 T15 columns one to one; vs Card 0-15 days away no verdict",
     ("t15", "sentence-loudness"): "verify-mapping consistent vs Card 2024-2025 sessions (flag-1 order)",
-    ("t16", "word-loudness"): "companion scripts (psth.py) only; verify-mapping vs Deo 2026 and "
-                              "Rigotti-Thompson 2026 T16 inconclusive",
+    ("t16", "word-loudness"): "companion scripts (psth.py) only; verify-mapping vs Deo 2026, "
+                              "Rigotti-Thompson 2026 and Kunz 2025 T16 inconclusive (near-ties)",
 }
 
 _FILE_RE = re.compile(r"^(t1[56])_(word-loudness|sentence-loudness)_block_(\d+)\.mat$")
@@ -164,10 +164,14 @@ def read_file(path: str | Path) -> Recording:
     norm = "normalized and smoothed by the authors (method not stated in the release)"
     features = []
     if raw is not None:
+        delay_bins = np.round(np.asarray(d["delay_duration_ms"], dtype=np.float64).ravel() / (1000 * BIN_S))
+        after = sorted({int(len(r) - PRE_DELAY_BINS - db) for r, db in zip(raw, delay_bins)})
+        window = (f"{after[0] * BIN_S:g} s" if len(after) == 1 or after[-1] - after[0] <= 1
+                  else f"{after[0] * BIN_S:g}-{after[-1] * BIN_S:g} s")
         features.append(Feature(
             name="threshold_crossings", data=np.concatenate(raw_out), unit="count",
             description="Unsmoothed binned -4.5 x RMS threshold crossings (raw_threshcross). "
-                        "Released only for the first 3 s after the go cue; NaN after that",
+                        f"Released only up to {window} after the go cue in this file; NaN after that",
             threshold_rms=-4.5, normalization="none (raw counts)"))
     features += [
         Feature(name="threshold_crossings_smoothed", data=np.concatenate(tx_out), unit="a.u.",

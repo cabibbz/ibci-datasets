@@ -51,7 +51,7 @@ class DryadFile:
     def safe_name(self) -> str:
         """The file's base name, refusing anything that could escape the target folder."""
         name = PurePosixPath(self.path).name
-        if name in ("", ".", "..") or "/" in name or "\\" in name:
+        if name in ("", ".", "..") or any(c in name for c in '/\\:') or "\0" in name:
             raise DryadError(f"refusing unsafe file name from Dryad: {self.path!r}")
         return name
 
@@ -60,7 +60,7 @@ Opener = Callable[[urllib.request.Request], "object"]
 
 
 class _DropAuthOnCrossHostRedirect(urllib.request.HTTPRedirectHandler):
-    """Follow redirects, but never forward the bearer token to another host.
+    """Follow redirects, but never forward the bearer token to another host or over plain HTTP.
 
     Dryad answers a download with a 302 to a pre-signed S3 URL. S3 rejects a request
     that carries both a URL signature and an ``Authorization`` header (HTTP 400), and
@@ -70,9 +70,9 @@ class _DropAuthOnCrossHostRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         new = super().redirect_request(req, fp, code, msg, headers, newurl)
         if new is not None:
-            old_host = urllib.parse.urlsplit(req.full_url).netloc.lower()
-            new_host = urllib.parse.urlsplit(new.full_url).netloc.lower()
-            if new_host != old_host:
+            old = urllib.parse.urlsplit(req.full_url)
+            nxt = urllib.parse.urlsplit(new.full_url)
+            if nxt.netloc.lower() != old.netloc.lower() or nxt.scheme.lower() != "https":
                 new.remove_header("Authorization")
         return new
 
@@ -163,16 +163,35 @@ class DryadClient:
             },
             method="POST",
         )
-        with self._open(req) as resp:
-            payload = json.load(resp)
+        try:
+            with self._open(req) as resp:
+                payload = json.load(resp)
+        except urllib.error.HTTPError as e:
+            raise DryadAuthError(f"Dryad rejected the client credentials ({e.code}); check "
+                                 "DRYAD_CLIENT_ID and DRYAD_CLIENT_SECRET") from e
         self._token = payload["access_token"]
         self._token_expiry = time.time() + float(payload.get("expires_in", 36000))
         return self._token
 
     # -- download ----------------------------------------------------------------------
 
+    def _request_file(self, f: DryadFile, have: int):
+        for attempt in (0, 1):
+            headers = {"Authorization": f"Bearer {self.token()}", "User-Agent": USER_AGENT}
+            if have:
+                headers["Range"] = f"bytes={have}-"
+            try:
+                return self._open(urllib.request.Request(f.download_url, headers=headers))
+            except urllib.error.HTTPError as e:
+                if e.code == 401 and attempt == 0 and self._client_id and self._client_secret:
+                    self._token_expiry = 0.0  # stale token (e.g. an expired DRYAD_TOKEN): fetch a new one
+                    continue
+                if e.code in (401, 403):
+                    raise DryadAuthError(f"Dryad refused the download ({e.code}); check your credentials") from e
+                raise
+
     def download(self, f: DryadFile, dest_dir: str | os.PathLike, verify: bool = True) -> Path:
-        """Download one file, resuming a partial download and checking its SHA-256."""
+        """Download one file, resuming a partial download and checking its digest (SHA-256 or MD5)."""
         dest_dir = Path(dest_dir)
         dest_dir.mkdir(parents=True, exist_ok=True)
         target = dest_dir / f.safe_name
@@ -185,17 +204,10 @@ class DryadClient:
         if have > f.size:
             part.unlink()
             have = 0
+        if f.size == 0:
+            part.write_bytes(b"")
         if have < f.size:
-            headers = {"Authorization": f"Bearer {self.token()}", "User-Agent": USER_AGENT}
-            if have:
-                headers["Range"] = f"bytes={have}-"
-            req = urllib.request.Request(f.download_url, headers=headers)
-            try:
-                resp = self._open(req)
-            except urllib.error.HTTPError as e:
-                if e.code in (401, 403):
-                    raise DryadAuthError(f"Dryad refused the download ({e.code}); check your credentials") from e
-                raise
+            resp = self._request_file(f, have)
             with resp:
                 status = getattr(resp, "status", 200)
                 mode = "ab" if have and status == 206 else "wb"
@@ -211,14 +223,18 @@ class DryadClient:
         return target
 
 
+_DIGESTS = {"sha-256": "sha256", "sha256": "sha256", "md5": "md5", "sha-1": "sha1", "sha1": "sha1"}
+
+
 def _matches(path: Path, f: DryadFile) -> bool:
-    if not f.digest or (f.digest_type or "").lower() not in ("sha-256", "sha256"):
-        return True  # nothing to check against
-    h = hashlib.sha256()
+    algo = _DIGESTS.get((f.digest_type or "").lower())
+    if not f.digest or algo is None:
+        return True  # nothing we can check against
+    h = hashlib.new(algo)
     with open(path, "rb") as fh:
         while chunk := fh.read(CHUNK):
             h.update(chunk)
-    return h.hexdigest() == f.digest
+    return h.hexdigest() == f.digest.strip().lower()
 
 
 def safe_extract(zip_path: str | os.PathLike, dest_dir: str | os.PathLike,

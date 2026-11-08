@@ -145,7 +145,7 @@ def test_centring_ignores_block_level_strength():
     assert r.verdict in ("consistent", "inconclusive"), r.summary()
 
 
-def test_rejection_of_a_wrong_claim():
+def test_trailing_claim_is_a_diagnostic_not_a_verdict():
     ref = _rec((0, 1, 2, 3), ARRAYS, seed=1)
     right = verify([_rec((0, 1, 2, 3), ARRAYS, seed=2)], [ref], n_bootstrap=10)
     assert not right.claimed_rejected and right.deficit_claimed == 0.0
@@ -155,5 +155,11 @@ def test_rejection_of_a_wrong_claim():
     import dataclasses
     wrong = dataclasses.replace(wrong, gap_days=10.0)
     assert wrong.claimed_rejected
-    undetermined = dataclasses.replace(wrong, margin_centred=0.001)  # best not settled, claim still rejected
-    assert undetermined.verdict == "mismatch (correct order undetermined)"
+    # best not settled: the diagnostic still fires, but it no longer turns into a verdict
+    undetermined = dataclasses.replace(wrong, margin_centred=0.001)
+    assert undetermined.claimed_rejected and undetermined.verdict == "inconclusive"
+
+
+def test_single_array_is_inconclusive():
+    r = verify([_rec((0,), ARRAYS[:1], seed=2)], [_rec((0,), ARRAYS[:1], seed=1)], n_bootstrap=5)
+    assert r.verdict == "inconclusive" and "fewer than two arrays" in r.reasons()[0]
